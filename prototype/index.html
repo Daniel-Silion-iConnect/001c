@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>001c Speed Accumulator</title>
+  <style>
+    body { font-family: system-ui; max-width: 800px; margin: 2rem auto; padding: 1rem; }
+    label { display: block; margin: 1rem 0 0.25rem; }
+    input { width: 100%; }
+    .result { font-size: 1.5rem; margin: 1.5rem 0; padding: 1rem; background: #f0f4f8; border-radius: 8px; }
+    .bar { height: 20px; background: #2563eb; border-radius: 4px; margin: 0.25rem 0; }
+  </style>
+</head>
+<body>
+  <h1>001c — Cumulative Speed Estimator</h1>
+  <p>Rough additive model. Real trajectories have diminishing returns and constraints. For exploration only.</p>
+
+  <label>Chemical / initial Δv (km/s): <input type="range" id="chem" min="0" max="50" value="20"></label>
+  <label>Tether chain total (km/s): <input type="range" id="tether" min="0" max="100" value="40"></label>
+  <label>Solar Oberth multiplier (1–4×): <input type="range" id="oberth" min="1" max="4" step="0.1" value="2"></label>
+  <label>Hitchhike bonus (km/s): <input type="range" id="hitch" min="0" max="15" value="5"></label>
+  <label>Sail contribution (km/s): <input type="range" id="sail" min="0" max="100" value="0"></label>
+
+  <div class="result" id="out">Calculating…</div>
+  <div id="bars"></div>
+
+  <script>
+    const c = 299792.458;
+    const inputs = ['chem','tether','oberth','hitch','sail'];
+    function update() {
+      const chem = +document.getElementById('chem').value;
+      const tether = +document.getElementById('tether').value;
+      const oberth = +document.getElementById('oberth').value;
+      const hitch = +document.getElementById('hitch').value;
+      const sail = +document.getElementById('sail').value;
+      // Very rough: Oberth multiplies the chemical+tether base
+      const base = (chem + tether) * oberth + hitch + sail;
+      const frac = base / c;
+      document.getElementById('out').innerHTML =
+        `<strong>${base.toFixed(1)} km/s</strong> asymptotic<br>` +
+        `${(frac*1000).toFixed(2)} × 10<sup>-3</sup> c &nbsp;|&nbsp; ` +
+        `1 / ${Math.round(1/frac)} of light speed`;
+      // Simple bars
+      const max = 300;
+      document.getElementById('bars').innerHTML =
+        `<div>Target 0.001c</div><div class="bar" style="width:${(300/max)*100}%"></div>` +
+        `<div>Current estimate</div><div class="bar" style="width:${Math.min(100, base/max*100)}%; background:#16a34a"></div>`;
+    }
+    inputs.forEach(id => document.getElementById(id).addEventListener('input', update));
+    update();
+  </script>
+</body>
+</html>
