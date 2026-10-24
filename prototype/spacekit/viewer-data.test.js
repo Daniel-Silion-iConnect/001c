@@ -292,26 +292,32 @@ test('a burn to parabolic escape remains playable using Barker time', () => {
 });
 
 const conceptC = JSON.parse(readFileSync(new URL('./scenarios/scenario-c.json', import.meta.url)));
+const conceptA = JSON.parse(readFileSync(new URL('./scenarios/scenario-a.json', import.meta.url)));
 const dist = (a, b) => Math.hypot(...a.map((x, i) => x - b[i]));
 
-test('Concept C continuous arcs chain event to event and end at the 30 AU cap', () => {
-  const model = buildTrajectory(conceptC);
-  const original = structuredClone(model);
-  const arcs = buildContinuousArcs(model);
-  assert.equal(arcs.length, model.legs.length);
-  for (const [i, arc] of arcs.entries()) {
-    const leg = model.legs[i];
-    nearPosition(arc.points[0].r_AU, leg.finalState.r_km.map(x => x / AU_KM), 1e-8);
-    assert.ok(arc.endNu >= arc.startNu);
-    if (i < model.markers.length) assert.ok(dist(arc.points.at(-1).r_AU, model.markers[i].position) < 1e-6, `leg ${i} misses event ${i + 1}`);
-    for (const p of arc.points) assert.ok(Math.hypot(...p.r_AU) <= 30 + 1e-6);
-  }
-  near(Math.hypot(...arcs.at(-1).points.at(-1).r_AU), 30, 1e-6);
-  // Post-tether legs are short hops, unlike the full conics that fan out from the Sun.
-  for (const arc of arcs.slice(2)) assert.ok(Math.hypot(...arc.points[0].r_AU) >= 9.99);
-  assert.ok(model.legs.slice(2).every(leg => Math.hypot(...leg.ephemerisPoints[0].r_AU) > 29));
-  assert.deepEqual(model, original);
-});
+for (const [name, doc] of [['A', conceptA], ['C', conceptC]]) {
+  test(`Concept ${name} continuous arcs chain event to event and end at the 30 AU cap`, () => {
+    const model = buildTrajectory(doc);
+    const original = structuredClone(model);
+    const arcs = buildContinuousArcs(model);
+    // Scenario A rounds station anomalies to six decimals: its last station is
+    // 0.0000056 AU beyond the cap. Preserve that actual event, without reversing.
+    const capTolerance = name === 'A' ? 1e-5 : 1e-6;
+    assert.equal(arcs.length, model.legs.length);
+    for (const [i, arc] of arcs.entries()) {
+      const leg = model.legs[i];
+      nearPosition(arc.points[0].r_AU, leg.finalState.r_km.map(x => x / AU_KM), 1e-8);
+      assert.ok(arc.endNu >= arc.startNu);
+      if (i < model.markers.length) assert.ok(dist(arc.points.at(-1).r_AU, model.markers[i].position) < 1e-6, `leg ${i} misses event ${i + 1}`);
+      for (const p of arc.points) assert.ok(Math.hypot(...p.r_AU) <= 30 + capTolerance);
+    }
+    near(Math.hypot(...arcs.at(-1).points.at(-1).r_AU), 30, capTolerance);
+    // Post-tether legs are short hops, unlike the full conics that fan out from the Sun.
+    for (const arc of arcs.slice(2)) assert.ok(Math.hypot(...arc.points[0].r_AU) >= 9.99);
+    assert.ok(model.legs.slice(2).every(leg => Math.hypot(...leg.ephemerisPoints[0].r_AU) > 29));
+    assert.deepEqual(model, original);
+  });
+}
 
 test('continuous playback follows the arcs without jumps and stays monotonic in radius after perihelion', () => {
   const model = buildTrajectory(conceptC);
@@ -373,4 +379,44 @@ test('continuous playback of a bound final orbit lasts one period and handles ze
   near(playback.legs[2].duration_s / (2 * Math.PI * Math.sqrt(k.a ** 3 / MU.Sun)), 1);
   nearPosition(playbackAt(playback, playback.duration_s).position, playbackAt(playback, 0).position, 1e-8);
   assert.throws(() => buildContinuousArcs({ legs: [] }), /at least one/);
+});
+
+test('continuous sail arcs and playback use effective gravity through impulses and jettison', () => {
+  const doc = JSON.parse(readFileSync(new URL('./scenarios/scenario-b.json', import.meta.url)));
+  doc.events.push({ type: 'burn', deltaV_km_s: 1, direction: 'prograde' });
+  doc.events.push({ type: 'solarSail', beta: 0, location: 60 });
+  const model = buildTrajectory(doc);
+  const original = structuredClone(model);
+  const arcs = buildContinuousArcs(model);
+  const playback = buildContinuousPlayback(model, arcs);
+  for (const [i, arc] of arcs.entries()) {
+    near(arc.mu, i === 2 || i === 3 ? 0.75 * MU.Sun : MU.Sun);
+    near(arc.k.e, model.legs[i].finalElements.e);
+    nearPosition(arc.points[0].r_AU, model.legs[i].finalState.r_km.map(x => x / AU_KM));
+    if (i + 1 < arcs.length) nearPosition(arc.points.at(-1).r_AU, arcs[i + 1].points[0].r_AU);
+    nearPosition(playbackAt(playback, playback.legs[i].start_s).position, arc.points[0].r_AU);
+  }
+  const final = playback.legs.at(-1);
+  // Independent hyperbolic solution at H = 1, measured from the final arc's start.
+  const H = 1, k = final.k;
+  const t = (k.e * Math.sinh(H) - H) / Math.sqrt(final.mu / Math.abs(k.a) ** 3);
+  const at = playbackAt(playback, final.start_s + t - final.periapsisStart_s);
+  near(Math.hypot(...at.position), Math.abs(k.a) / AU_KM * (k.e * Math.cosh(H) - 1));
+  near(Math.hypot(...playbackAt(playback, playback.duration_s).position), 30);
+  assert.deepEqual(model, original);
+});
+
+test('continuous playback handles a parabolic escape and a no-event bound orbit', () => {
+  const doc = scenario();
+  doc.events = [{ type: 'burn', deltaV_km_s: (Math.SQRT2 - 1) * circularSpeed(MU.Sun, AU_KM), direction: 'prograde' }];
+  const playback = buildContinuousPlayback(buildTrajectory(doc));
+  const leg = playback.legs[1];
+  assert.equal(leg.k.a, Infinity);
+  const t = Math.sqrt(leg.k.p ** 3 / MU.Sun) / 2 * (1 + 1 / 3);
+  nearPosition(playbackAt(playback, t).position, [0, leg.k.p / AU_KM, 0]);
+  near(Math.hypot(...playbackAt(playback, playback.duration_s).position), 30);
+  doc.events = [];
+  const bound = buildContinuousPlayback(buildTrajectory(doc));
+  near(bound.duration_s / (2 * Math.PI * Math.sqrt(AU_KM ** 3 / MU.Sun)), 1);
+  nearPosition(playbackAt(bound, bound.duration_s / 4).position, [0, 1, 0]);
 });

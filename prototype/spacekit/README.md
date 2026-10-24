@@ -1,7 +1,7 @@
 # Trajectory viewer
 
 Static, schema-driven trajectory visualization. The page loads JSON, runs the
-patched-conic engine, and draws the initial orbit plus the orbit after every event.
+patched-conic engine, and draws a continuous event-to-event path.
 Three.js provides interactive 3D; a local 2D canvas renderer starts immediately and
 remains usable if the CDN fails, times out, or WebGL is unavailable.
 
@@ -52,20 +52,23 @@ states, mean anomaly, and the schema's outward `radial` direction for the engine
 Coordinates stay in the scenario's declared inertial frame; no reference planets
 or frame conversion are needed for this single-body view.
 
-Each leg is a sampled complete conic. Playback uses elliptic or hyperbolic
-Kepler propagation to place the probe at the requested time, rather than moving
-uniformly through the sampled points. Ellipses cover one period from apoapsis;
-open paths run from the inbound radius cap through periapsis to the outbound
-cap. Parabolic states produced by burns use Barker's equation.
-The probe resets between independent conics: cumulative preview time is the
-sum of their flight times, not a mission epoch or scheduled event-to-event arc.
-Ellipses are closed orbits; hyperbolic and parabolic legs are open polylines capped
-at 30 AU. Numbered markers use the engine's actual post-event position. Coincident
-markers have offset labels so each event remains selectable.
+Each leg starts at its own event (or the initial state) and ends at the next
+event's position. The final open leg runs to the 30 AU radius cap; a bound final
+leg covers one orbit. **Show full conics** adds faint complete conics for context
+without changing the path or playback. Both renderers share the same sampled arcs.
 
-The engine currently skips `tetherRelease`, `gravityAssist`, and `hitchhike`;
-the UI labels these events as skipped and exposes their warnings under Engine
-notes. An Oberth event can include an implicit perihelion-retargeting burn; its
+Playback uses elliptic or hyperbolic Kepler propagation, or Barker's equation for
+parabolic states, rather than moving uniformly through samples. It uses the same
+arc boundaries as the drawing and the effective gravity when a solar sail is
+active. Co-located and skipped events take zero preview time. Preview time sums
+two-body flight times; it is not a mission epoch or scheduled encounter solution.
+Numbered markers use actual post-event positions, with offset labels for
+coincident markers. The Sun marker and Sun/Earth/Jupiter labels use screen-space
+HTML, with 14px text and an 18px central-body marker at every zoom. On narrow
+screens the plot and controls stack in a single scrolling page.
+
+The engine models burns, tethers, gravity assists, and solar sails; `hitchhike`
+is skipped with a warning under Engine notes. An Oberth event can include an implicit perihelion-retargeting burn; its
 intermediate transfer conic is not shown, and this is noted in the HUD. The example
 illustrates the event vocabulary rather than a validated mission solution.
 

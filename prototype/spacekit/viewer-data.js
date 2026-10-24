@@ -256,7 +256,7 @@ export function buildContinuousArcs(model, options = {}) {
   const { samples = 129, maxRadius_AU = 30 } = options;
   if (!model.legs.length) throw new Error('Continuous arcs need at least one leg.');
   return model.legs.map((leg, index) => {
-    const mu = MU[leg.centralBody];
+    const mu = leg.effectiveMu_km3_s2 ?? MU[leg.centralBody];
     const k = stateToElements(leg.finalState.r_km, leg.finalState.v_km_s, mu);
     const next = model.legs[index + 1]?.finalState.r_km;
     const { startNu, endNu } = legArcSpan(k, mu, k.nu, next, maxRadius_AU);
