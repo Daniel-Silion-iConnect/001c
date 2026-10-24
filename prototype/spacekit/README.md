@@ -40,8 +40,10 @@ playback controls, mission story, and Proxima / heliopause cruise highlights
 stay outside collapsible controls. **Advanced** starts closed and contains the
 JSON path / Load form, frame and epoch, current-leg selector, full-conics toggle,
 event list, engine notes, and detailed story. Load errors remain visible outside
-Advanced. Below 900px, the controls precede the plot in one scrolling page;
-desktop uses a scrolling sidebar beside the plot.
+Advanced. At widths ≤900px, the plot follows the title, picker, and headline / target
+block at 45vh tall. Playback, travel highlights, story, analysis cards, and
+Advanced follow it in one scrolling page. Desktop uses a scrolling sidebar beside
+the plot.
 
 Select a leg or numbered event to inspect its v∞ in km/s and percentage of c
 and move the white probe to that leg's preview start. The initial view selects

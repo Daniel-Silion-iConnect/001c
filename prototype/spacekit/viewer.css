@@ -79,10 +79,12 @@ canvas { display: block; width: 100%; height: 100%; }
 #markers button[aria-pressed="true"] { background: #25435b; box-shadow: 0 0 0 2px #080f1b; transform: translate(-50%, -50%) scale(1.12); z-index: 1; }
 #view-note { position: absolute; bottom: 12px; left: 18px; right: 18px; margin: 0; font-size: 12px; color: #acbed1; pointer-events: none; }
 noscript { padding: 24px; }
-@media (max-width: 899px) {
-  body { flex-direction: column; height: auto; min-height: 100dvh; }
-  #info { width: 100%; padding: 16px; overflow: visible; border-right: 0; border-bottom: 1px solid #263448; }
-  #viewport { flex: none; height: 52dvh; min-height: 380px; }
+@media (max-width: 900px) {
+  body { flex-direction: column; height: auto; min-height: 100dvh; padding: 16px; background: #0d1726; }
+  /* Flatten the sidebar groups so the plot can follow the headline/target block. */
+  #info, #hud:not([hidden]) { display: contents; }
+  #viewport { order: 1; flex: none; height: 45vh; width: calc(100% + 32px); margin: 16px -16px 0; }
+  .playback-controls, #playback-time, #travel-panel, #story-panel, #analysis-panels, #advanced { order: 2; }
   header { margin-bottom: 12px; }
 }
 .toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; }
