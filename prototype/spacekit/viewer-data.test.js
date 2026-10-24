@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { AU_KM, C_KM_S, MU, applyTrajectory, circularSpeed } from './engine.js';
-import { validateScenario, trueAnomalyFromMean, engineElements, buildTrajectory, speedText, buildSpeedSeries, targetProgress, SPEED_TARGET_KM_S, buildPlayback, playbackAt } from './viewer-data.js';
+import { validateScenario, trueAnomalyFromMean, engineElements, buildTrajectory, speedText, buildSpeedSeries, targetProgress, SPEED_TARGET_KM_S, buildPlayback, playbackAt,
+  anomalyOfPosition, radiusCapAnomaly, legArcSpan, sampleArc, buildContinuousArcs, buildContinuousPlayback } from './viewer-data.js';
 import { legColor } from './renderers.js';
 
 const example = JSON.parse(readFileSync(new URL('./schema-example.json', import.meta.url)));
@@ -288,4 +289,88 @@ test('a burn to parabolic escape remains playable using Barker time', () => {
   nearPosition(at.position, [0, leg.k.p / AU_KM, 0]);
   near(Math.hypot(...playbackAt(playback, leg.start_s).position), 30);
   near(Math.hypot(...playbackAt(playback, playback.duration_s).position), 30);
+});
+
+const conceptC = JSON.parse(readFileSync(new URL('./scenarios/scenario-c.json', import.meta.url)));
+const dist = (a, b) => Math.hypot(...a.map((x, i) => x - b[i]));
+
+test('Concept C continuous arcs chain event to event and end at the 30 AU cap', () => {
+  const model = buildTrajectory(conceptC);
+  const original = structuredClone(model);
+  const arcs = buildContinuousArcs(model);
+  assert.equal(arcs.length, model.legs.length);
+  for (const [i, arc] of arcs.entries()) {
+    const leg = model.legs[i];
+    nearPosition(arc.points[0].r_AU, leg.finalState.r_km.map(x => x / AU_KM), 1e-8);
+    assert.ok(arc.endNu >= arc.startNu);
+    if (i < model.markers.length) assert.ok(dist(arc.points.at(-1).r_AU, model.markers[i].position) < 1e-6, `leg ${i} misses event ${i + 1}`);
+    for (const p of arc.points) assert.ok(Math.hypot(...p.r_AU) <= 30 + 1e-6);
+  }
+  near(Math.hypot(...arcs.at(-1).points.at(-1).r_AU), 30, 1e-6);
+  // Post-tether legs are short hops, unlike the full conics that fan out from the Sun.
+  for (const arc of arcs.slice(2)) assert.ok(Math.hypot(...arc.points[0].r_AU) >= 9.99);
+  assert.ok(model.legs.slice(2).every(leg => Math.hypot(...leg.ephemerisPoints[0].r_AU) > 29));
+  assert.deepEqual(model, original);
+});
+
+test('continuous playback follows the arcs without jumps and stays monotonic in radius after perihelion', () => {
+  const model = buildTrajectory(conceptC);
+  const arcs = buildContinuousArcs(model);
+  const playback = buildContinuousPlayback(model, arcs);
+  assert.equal(playback.legs.length, arcs.length);
+  nearPosition(playbackAt(playback, 0).position, arcs[0].points[0].r_AU);
+  nearPosition(playbackAt(playback, playback.duration_s).position, arcs.at(-1).points.at(-1).r_AU, 1e-6);
+  for (const [i, leg] of playback.legs.entries()) {
+    assert.ok(leg.duration_s >= 0);
+    if (i > 0) near(leg.start_s, playback.legs[i - 1].end_s, 1e-3);
+    const before = playbackAt(playback, Math.max(0, leg.start_s - 1e-3)).position;
+    const after = playbackAt(playback, leg.start_s + 1e-3).position;
+    assert.ok(dist(before, after) < 1e-6, `jump at leg ${i}`);
+  }
+  let previous = 0;
+  const perihelion_s = playback.legs[1].start_s;
+  for (let j = 0; j <= 400; j++) {
+    const t = perihelion_s + (playback.duration_s - perihelion_s) * j / 400;
+    const r = Math.hypot(...playbackAt(playback, t).position);
+    assert.ok(r >= previous - 1e-9);
+    previous = r;
+  }
+  near(previous, 30, 1e-6);
+});
+
+test('arc spans wrap ellipses forward, never reverse open conics, and fly one period at the end', () => {
+  const k = { p: AU_KM, a: AU_KM, e: 0, i: 0, raan: 0, argp: 0 };
+  const at = (deg) => [Math.cos(deg * Math.PI / 180) * AU_KM, Math.sin(deg * Math.PI / 180) * AU_KM, 0];
+  near(anomalyOfPosition(k, MU.Sun, at(90)), Math.PI / 2);
+  near(anomalyOfPosition({ ...k, i: Math.PI / 2 }, MU.Sun, [0, 0, AU_KM]), Math.PI / 2);
+  near(legArcSpan(k, MU.Sun, Math.PI / 2, at(0)).endNu, 2 * Math.PI);
+  near(legArcSpan(k, MU.Sun, 0, at(0)).endNu, 0);
+  near(legArcSpan(k, MU.Sun, 0.3, null).endNu, 0.3 + 2 * Math.PI);
+  const hyper = { p: 2 * AU_KM * (1.5 ** 2 - 1), a: -2 * AU_KM, e: 1.5, i: 0, raan: 0, argp: 0 };
+  const cap = radiusCapAnomaly(hyper, 30);
+  near(elementsRadius(hyper, cap), 30, 1e-9);
+  assert.equal(legArcSpan(hyper, MU.Sun, 1, [AU_KM, 0, 0]).endNu, 1);
+  near(legArcSpan(hyper, MU.Sun, 0, null).endNu, cap);
+  assert.equal(legArcSpan(hyper, MU.Sun, cap + 0.01, null).endNu, cap + 0.01);
+  const pts = sampleArc(k, MU.Sun, 0, Math.PI, 3);
+  nearPosition(pts[1].r_AU, [0, 1, 0]);
+  assert.throws(() => sampleArc(k, MU.Sun, 0, 1, 1), /two samples/);
+});
+
+function elementsRadius(k, nu) { return k.p / (1 + k.e * Math.cos(nu)) / AU_KM; }
+
+test('continuous playback of a bound final orbit lasts one period and handles zero-length legs', () => {
+  const doc = scenario();
+  doc.events = [
+    { type: 'burn', deltaV_km_s: 0.5, direction: 'prograde' },
+    { type: 'burn', deltaV_km_s: 0.5, direction: 'prograde' }
+  ];
+  const model = buildTrajectory(doc);
+  const playback = buildContinuousPlayback(model);
+  assert.equal(playback.legs[0].duration_s, 0);
+  assert.equal(playback.legs[1].duration_s, 0);
+  const k = playback.legs[2].k;
+  near(playback.legs[2].duration_s / (2 * Math.PI * Math.sqrt(k.a ** 3 / MU.Sun)), 1);
+  nearPosition(playbackAt(playback, playback.duration_s).position, playbackAt(playback, 0).position, 1e-8);
+  assert.throws(() => buildContinuousArcs({ legs: [] }), /at least one/);
 });
