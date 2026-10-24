@@ -1,0 +1,127 @@
+{
+  "name": "Concept A (baseline): Chemical + Solar Oberth + tether chain",
+  "description": "docs/analyses/reference-scenarios.md §2, concept-a-baseline. Starts on the post-Jupiter-assist transfer ellipse (r_a = 5.204 AU, r_p = 6.0 R_sun) at aphelion; the C3 = 120 km²/s² departure and retrograde JGA are not modelled. 12.0 km/s perihelion burn gives v_inf,SOM = 76.42 km/s; 12 speculative Zylon tethers x 3.0 km/s (+36.0 km/s) are placed far out (10–30 AU) so they add almost linearly. Doc reference: 112.42 km/s far-field linear (3.75e-4 c); 161.58 km/s if the tethers acted at perihelion.",
+  "epoch": "2026-10-24T00:00:00Z",
+  "centralBody": "Sun",
+  "frame": "ECLIPJ2000",
+  "initialElements": {
+    "type": "keplerian",
+    "a": 2.6159514017828864,
+    "e": 0.9893335925328138,
+    "i": 0,
+    "raan": 0,
+    "argp": 0,
+    "nu": 180,
+    "units": {
+      "a": "AU",
+      "angles": "deg"
+    }
+  },
+  "events": [
+    {
+      "id": "solar-oberth",
+      "type": "oberthBurn",
+      "deltaV_km_s": 12,
+      "direction": "prograde",
+      "perihelion_AU": 0.027902803565772946,
+      "notes": "Two-stage LH2/LOX + solid kick (Isp 450 s) at 6.0 R_sun; v_p- 251.49 -> v_p+ 263.49 km/s, v_inf,SOM 76.42 km/s."
+    },
+    {
+      "id": "tether-1",
+      "type": "tetherRelease",
+      "deltaV_km_s": 3,
+      "direction": "prograde",
+      "location": 147.103873,
+      "notes": "Zylon rotovator station 1/12 at ~10 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-2",
+      "type": "tetherRelease",
+      "deltaV_km_s": 3,
+      "direction": "prograde",
+      "location": 145.162196,
+      "notes": "Zylon rotovator station 2/12 at ~11.82 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-3",
+      "type": "tetherRelease",
+      "deltaV_km_s": 3,
+      "direction": "prograde",
+      "location": 143.220147,
+      "notes": "Zylon rotovator station 3/12 at ~13.64 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-4",
+      "type": "tetherRelease",
+      "deltaV_km_s": 3,
+      "direction": "prograde",
+      "location": 141.293805,
+      "notes": "Zylon rotovator station 4/12 at ~15.45 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-5",
+      "type": "tetherRelease",
+      "deltaV_km_s": 3,
+      "direction": "prograde",
+      "location": 139.395118,
+      "notes": "Zylon rotovator station 5/12 at ~17.27 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-6",
+      "type": "tetherRelease",
+      "deltaV_km_s": 3,
+      "direction": "prograde",
+      "location": 137.533353,
+      "notes": "Zylon rotovator station 6/12 at ~19.09 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-7",
+      "type": "tetherRelease",
+      "deltaV_km_s": 3,
+      "direction": "prograde",
+      "location": 135.715798,
+      "notes": "Zylon rotovator station 7/12 at ~20.91 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-8",
+      "type": "tetherRelease",
+      "deltaV_km_s": 3,
+      "direction": "prograde",
+      "location": 133.94814,
+      "notes": "Zylon rotovator station 8/12 at ~22.73 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-9",
+      "type": "tetherRelease",
+      "deltaV_km_s": 3,
+      "direction": "prograde",
+      "location": 132.234713,
+      "notes": "Zylon rotovator station 9/12 at ~24.55 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-10",
+      "type": "tetherRelease",
+      "deltaV_km_s": 3,
+      "direction": "prograde",
+      "location": 130.578678,
+      "notes": "Zylon rotovator station 10/12 at ~26.36 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-11",
+      "type": "tetherRelease",
+      "deltaV_km_s": 3,
+      "direction": "prograde",
+      "location": 128.982181,
+      "notes": "Zylon rotovator station 11/12 at ~28.18 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-12",
+      "type": "tetherRelease",
+      "deltaV_km_s": 3,
+      "direction": "prograde",
+      "location": 127.446483,
+      "notes": "Zylon rotovator station 12/12 at ~30 AU (far-field, Regime 5a)."
+    }
+  ],
+  "targetAsymptotic_km_s": 112.42
+}

@@ -119,3 +119,15 @@ Burns change the state vector and recompute the conic. Speeds follow vis-viva;
 the Oberth result follows the change in orbital energy without an artificial
 multiplier. `viewer-data.js` builds per-event legs from `applyEvents` and adapts
 schema inputs; `viewer.js` handles loading, HUD, and renderer selection.
+
+## Reference scenarios
+
+`scenarios/` holds the baseline variants of Concepts A, B and C from
+[reference-scenarios.md](../../docs/analyses/reference-scenarios.md) as schema-valid
+trajectories, listed in `scenarios/index.json` (`id`, `name`, `file`, `summary`). The
+viewer's **Reference scenario** picker (`scenario-picker.js`) loads them; the schema
+example stays the default. Each file starts after the Earth departure and Jupiter
+assist, which are not modelled. `targetAsymptotic_km_s` records the doc's far-field
+linear v∞. Tether stations sit at 10–30 AU, so their Δv adds almost linearly. Concept B's
+solar sail has no schema event yet: the file encodes only the perihelion kick, and
+`scenarios.test.js` applies the doc's hybrid equation to the engine's perihelion state.

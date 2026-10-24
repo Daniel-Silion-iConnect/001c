@@ -1,0 +1,20 @@
+[
+  {
+    "id": "concept-a-baseline",
+    "name": "Concept A (baseline): Chemical + Solar Oberth + tether chain",
+    "file": "scenario-a.json",
+    "summary": "12 km/s chemical burn at 6 R_sun (v∞ 76.42 km/s) plus 12 speculative Zylon tethers × 3 km/s; doc reference 112.42 km/s (3.75e-4 c)."
+  },
+  {
+    "id": "concept-b-baseline",
+    "name": "Concept B (baseline): Sundiver hybrid (chemical Oberth + solar sail)",
+    "file": "scenario-b.json",
+    "summary": "6 km/s kick at 10 R_sun (v∞ 45.07 km/s); the β = 0.25 sail is not yet modelled, doc hybrid reference 107.56 km/s (3.59e-4 c)."
+  },
+  {
+    "id": "concept-c-baseline",
+    "name": "Concept C (baseline): Tether network + STP Oberth",
+    "file": "scenario-c.json",
+    "summary": "45 km/s inbound plunge, 24 km/s solar-thermal burn at 3.5 R_sun (v∞ 136.36 km/s) plus 15 speculative CNT tethers × 4 km/s; doc reference 196.36 km/s (6.55e-4 c)."
+  }
+]
