@@ -4,9 +4,11 @@
   "type": "module",
   "description": "0.001c probe mission design prototypes",
   "scripts": {
-    "test": "node --test prototype/spacekit/engine.test.js"
+    "test": "node scripts/validate-schema.mjs && node --test tests/trajectory-schema.test.mjs prototype/spacekit/engine.test.js"
   },
-  "engines": {
-    "node": ">=18"
+  "engines": { "node": ">=18" },
+  "devDependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
   }
 }

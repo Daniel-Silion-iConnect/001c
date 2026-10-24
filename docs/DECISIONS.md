@@ -19,53 +19,16 @@
 
 ## Orbital Mechanics Notation
 
-We adopt a clear, standard Keplerian / Cartesian hybrid inspired by:
-- CCSDS Orbit Data Messages (OPM / OMM / OEM)
-- poliastro classical elements
-- Orekit orbit representations
+The canonical contract is [trajectory-schema.json](../prototype/spacekit/trajectory-schema.json), using JSON Schema draft 2020-12. It follows the Keplerian / Cartesian conventions described in [ORBITAL_NOTATION.md](ORBITAL_NOTATION.md).
 
-### Canonical Internal Schema (JSON)
+### 2026-10-24: Formal trajectory contract (issue #1)
 
-```json
-{
-  "epoch": "2026-10-24T00:00:00Z",
-  "centralBody": "Sun",
-  "frame": "ICRS",
-  "elements": {
-    "type": "keplerian",
-    "a": 1.5,
-    "e": 0.2,
-    "i": 1.5,
-    "raan": 45.0,
-    "argp": 90.0,
-    "nu": 0.0,
-    "units": {
-      "a": "AU",
-      "angles": "deg"
-    }
-  },
-  "events": [
-    {
-      "type": "burn",
-      "deltaV": [0.5, 0, 0],
-      "units": "km/s",
-      "location": "perihelion"
-    }
-  ]
-}
-```
+- Use `initialElements` for the initial state, matching the existing example. The old `elements` spelling is no longer accepted.
+- Use nonnegative scalar `deltaV_km_s` plus required `direction` (`prograde`, `retrograde`, `radial`, `normal`) for impulse events. Vector Δv and separate event `units` fields are not supported; state vectors remain supported for Cartesian initial states.
+- Retain `oberthBurn` as a distinct event requiring `perihelion_AU`, matching the placeholder engine. Other events are `burn`, `tetherRelease`, `hitchhike`, and `gravityAssist`.
+- Require compatible conic parameters: positive a and 0 ≤ e < 1 for ellipses, negative a and e > 1 for hyperbolas. Parabolic elements (e = 1) are outside this contract.
+- Require explicit units, a date-time epoch with timezone, and a supported inertial frame. Reject unknown fields to catch obsolete spellings and typos.
 
-**Supported element types:**
-- `keplerian` (classical: a, e, i, Ω/raan, ω/argp, ν or M)
-- `cartesian` (r, v vectors)
-- Hyperbolic: negative semi-major axis or e > 1
+The engine remains a placeholder: it reads scalar impulse magnitudes but does not yet interpret directions, initial states, or gravity assists physically. Formal validation does not imply a dynamically feasible trajectory. Implementing physics and visualization is separate work.
 
-**Event types (to be expanded):**
-- `burn` (impulsive Δv, with optional Oberth context)
-- `tetherRelease`
-- `hitchhike`
-- `gravityAssist`
-
-The engine (to be implemented) will accept a sequence of these events and produce updated states or ephemeris points that the spacekit visualizer consumes.
-
-See `prototype/spacekit/schema-example.json` and `docs/ORBITAL_NOTATION.md` for full details.
+Run `npm ci` then `npm test` to validate the example and exercise valid and invalid trajectories with Ajv. The example demonstrates the event vocabulary; it is not a propagated mission solution.

@@ -220,7 +220,7 @@ test('schema-example.json runs end to end and samples an ephemeris', () => {
   const doc = JSON.parse(readFileSync(new URL('./schema-example.json', import.meta.url), 'utf8'));
   const out = applyTrajectory(doc, { ephemerisSamples: 16 });
   assert.equal(out.log.length, doc.events.length);
-  assert.deepEqual(out.log.map((e) => e.status), ['applied', 'applied', 'skipped']);
+  assert.deepEqual(out.log.map((e) => e.status), ['applied', 'applied', 'skipped', 'skipped', 'skipped']);
   assert.ok(out.log[1].perihelionAdjust, 'Oberth event retargets perihelion to 0.1 AU');
   near(out.log[1].oberth.burnRadius_AU, 0.1, 1e-9);
   assert.equal(out.ephemerisPoints.length, 16);
