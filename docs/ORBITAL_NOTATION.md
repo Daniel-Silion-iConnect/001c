@@ -39,15 +39,41 @@ Use `type: "cartesian"`, `r: [x, y, z]`, `v: [vx, vy, vz]`, and `units: { "r": "
 |------|------------------|
 | `burn` | `deltaV_km_s`, `direction` |
 | `oberthBurn` | `deltaV_km_s`, `direction`, positive `perihelion_AU` |
-| `tetherRelease` | `deltaV_km_s`, `direction` |
+| `tetherRelease` | `direction` and exactly one of `deltaV_km_s`, `tipSpeed_km_s`, or `tetherLength_km` + `rotationPeriod_s` |
 | `hitchhike` | `deltaV_km_s`, `direction` |
-| `gravityAssist` | Nonempty `body`, positive `periapsis_km`, `turnAngle_deg` strictly between 0 and 180 |
+| `gravityAssist` | Nonempty `body` and at least one of `periapsis_km`, `periapsisAltitude_km` (not both), `turnAngle_deg` |
 
 Impulse magnitudes are nonnegative scalars in km/s; zero is allowed for a no-op. `direction` is required and uses the pre-event local state: `prograde` follows velocity, `retrograde` opposes velocity, `radial` points away from the central body, and `normal` follows the angular momentum vector r × v. The frame and initial state determine these vectors; degenerate vectors require engine handling. This version provides no inward radial, negative normal, or explicit vector impulses. `hitchhike` uses the same local direction convention; modeling alignment with a target object's velocity is future engine work.
 
-`oberthBurn` is the chosen distinct event type for an impulse at a specified perihelion distance from the central body's center. Gravity-assist periapsis is measured from the assist body's center in km; its turn angle is the magnitude of the incoming-to-outgoing asymptotic velocity deflection in that body's frame. These fields describe context, not a complete encounter solution (orientation, encounter timing, and ephemerides are future engine work). Gravity assists have no prescribed Δv.
+`oberthBurn` is the chosen distinct event type for an impulse at a specified perihelion distance from the central body's center.
 
-The old `elements`, vector `deltaV`, and event `units` fields are rejected. The placeholder engine consumes `deltaV_km_s` and recognizes `oberthBurn`, but its rough arithmetic is not validated orbital physics and currently ignores gravity assists and directions.
+### `gravityAssist`
+
+Patched-conic flyby with a zero-radius sphere of influence at the probe's position.
+
+- `body`: `Venus`, `Earth`, `Mars`, `Jupiter`, `Saturn`, `Uranus`, or `Neptune` use built-in constants. Any other name needs `mu_km3_s2` (km³/s²), plus `bodyRadius_km` and `bodyOrbit_AU` as required. These fields also override the built-in values.
+- Periapsis: `periapsis_km` is measured from the body's center; `periapsisAltitude_km` is measured above its equatorial radius.
+- `turnAngle_deg` is the deflection of v∞ in the body's frame. If it is given without a periapsis, the engine solves r_p = μ/v∞² · (1/sin(δ/2) − 1) (unpowered only). If it is given with a periapsis, it is only a consistency check: the engine uses the computed angle and logs a warning on mismatch.
+- `location`: `encounter` (default) moves along the conic to the outbound crossing of the body's orbital radius. `current` flies by at the probe's current position. If the orbit never reaches the body, the event is skipped with a warning.
+- The body is assumed to be on a circular, prograde orbit in the reference (x–y) plane, so v∞_in = v_probe − v_body comes from the state. Turn angle δ = 2·asin(1/e), with e = 1 + r_p v∞²/μ_body.
+- `side`: `trailing` (default) turns v∞ toward the body's velocity for maximum energy gain; `leading` turns it the other way. `bPlaneAngle_deg` instead rotates the turn plane about v∞_in: 0° is trailing, 180° is leading, ±90° is out of plane.
+- `deltaV_km_s` with `direction` `prograde` (default) or `retrograde` makes it a powered flyby, with the burn at periapsis. The turn angle is then δ = asin(1/e_in) + asin(1/e_out). A powered flyby needs an explicit periapsis. If the burn would capture the probe, the event is skipped.
+- The engine logs `flyby`: v∞ in/out, eccentricities, turn angle, heliocentric speeds, and Δv. Only the periapsis burn counts in `totalDeltaV_km_s`; the gravity-assist Δv is free.
+
+### `tetherRelease`
+
+Momentum-exchange tether. Assumptions:
+- The tether is rigid, massless, and much shorter than the orbital radius, so the release point is the probe's position.
+- The release is impulsive.
+- The facility + payload centre of mass is on the probe's current conic.
+
+Fields:
+- `tipSpeed_km_s` is the payload speed relative to the facility at release. Alternatively, give `tetherLength_km` + `rotationPeriod_s` (tip speed = 2πL/T), or give the imparted `deltaV_km_s` directly.
+- `massRatio` = M_facility / m_payload (default ∞). Payload Δv = tipSpeed · M/(M + m), and the facility recoils by −Δv / massRatio.
+- `location` is `current` (default), `perihelion` / `periapsis`, `aphelion` / `apoapsis`, or a true anomaly in degrees. `direction` is the tip velocity at release.
+- The engine logs `tether`: tip speed, payload Δv, facility recoil, and payload acceleration in g when the length is known. The payload Δv counts in `totalDeltaV_km_s`.
+
+The old `elements`, vector `deltaV`, and event `units` fields are rejected. The engine (`prototype/spacekit/engine.js`) models `burn`, `oberthBurn`, `gravityAssist`, and `tetherRelease`. It passes `hitchhike` through with a warning.
 
 ## Validation
 

@@ -11,6 +11,10 @@
 // out of burning where the probe is already fast (at perihelion), giving
 // v∞ = sqrt((v_p + Δv)² − v_esc²).
 //
+// Gravity assists are patched conics: the flyby rotates v∞ relative to the
+// flyby body by δ = 2·asin(1/e). Tether releases are impulsive Δv from a rigid
+// rotating tether.
+//
 // Internal units: km, km/s, radians. Element input/output follows
 // docs/ORBITAL_NOTATION.md (a in AU or km, angles in degrees).
 
@@ -20,9 +24,27 @@ const C_KM_S = 299792.458;
 // Gravitational parameters, km³/s².
 const MU = {
   Sun: 1.32712440018e11,
+  Venus: 324858.592,
   Earth: 398600.4418,
-  Jupiter: 1.26686534e8
+  Mars: 42828.37,
+  Jupiter: 1.26686534e8,
+  Saturn: 3.7931187e7,
+  Uranus: 5.793939e6,
+  Neptune: 6.836529e6
 };
+
+// Flyby bodies: equatorial radius (km) and mean heliocentric semi-major axis (AU).
+const PLANETS = {
+  Venus: { radius_km: 6051.8, a_AU: 0.72333566 },
+  Earth: { radius_km: 6378.137, a_AU: 1.00000261 },
+  Mars: { radius_km: 3396.19, a_AU: 1.52371034 },
+  Jupiter: { radius_km: 71492, a_AU: 5.202887 },
+  Saturn: { radius_km: 60268, a_AU: 9.53667594 },
+  Uranus: { radius_km: 25559, a_AU: 19.18916464 },
+  Neptune: { radius_km: 24764, a_AU: 30.06992276 }
+};
+
+const G0_KM_S2 = 9.80665e-3;
 
 // |specific energy| / (μ/r_p) below this is treated as parabolic.
 const PARABOLIC_TOL = 1e-12;
@@ -55,6 +77,12 @@ function wrapPi(x) {
 // Signed angle from `from` to `to`, measured positively about `axis`.
 function signedAngle(from, to, axis) {
   return Math.atan2(dot(cross(from, to), axis), dot(from, to));
+}
+
+// Rotate `a` by angle θ about unit vector `k` (Rodrigues).
+function rotate(a, k, theta) {
+  const c = Math.cos(theta), s = Math.sin(theta);
+  return add(add(scale(a, c), scale(cross(k, a), s)), scale(k, dot(k, a) * (1 - c)));
 }
 
 // ---------- scalar orbital relations ----------
@@ -99,6 +127,49 @@ function vInfinity(mu, r, v) {
  */
 function oberthVInf(mu, rp, vp, dv) {
   return vInfinity(mu, rp, vp + dv);
+}
+
+/**
+ * Unpowered flyby turn angle (rad): δ = 2·asin(1/e), e = 1 + r_p v∞²/μ.
+ */
+function flybyTurnAngle(mu, rp, vInf) {
+  return 2 * Math.asin(1 / (1 + (rp * vInf * vInf) / mu));
+}
+
+/**
+ * Patched-conic flyby with an optional impulsive Δv at periapsis (along the
+ * periapsis velocity; negative = retrograde). The inbound and outbound legs are
+ * separate hyperbolas sharing r_p, so δ = asin(1/e_in) + asin(1/e_out).
+ * Returns null when the burn captures the probe (v_p,out ≤ v_esc at r_p).
+ */
+function poweredFlyby(mu, rp, vInfIn, dv = 0) {
+  const vEsc2 = (2 * mu) / rp;
+  const vpIn = Math.sqrt(vInfIn * vInfIn + vEsc2);
+  const vpOut = vpIn + dv;
+  const vInfOut2 = vpOut * vpOut - vEsc2;
+  if (vpOut <= 0 || vInfOut2 <= 0) return null;
+  const vInfOut = Math.sqrt(vInfOut2);
+  const eIn = 1 + (rp * vInfIn * vInfIn) / mu;
+  const eOut = 1 + (rp * vInfOut2) / mu;
+  return {
+    vpIn,
+    vpOut,
+    vInfOut,
+    eIn,
+    eOut,
+    turnAngle: Math.asin(1 / eIn) + Math.asin(1 / eOut)
+  };
+}
+
+/**
+ * Δv given to a payload released from a rigid rotating tether, where tipSpeed is
+ * the payload speed relative to the facility (hub) and massRatio = M_facility /
+ * m_payload. Momentum conservation about the common centre of mass gives
+ * Δv_payload = tipSpeed · M/(M + m); the facility recoils by −Δv_payload / massRatio.
+ */
+function tetherDeltaV(tipSpeed, massRatio = Infinity) {
+  if (!(massRatio > 0)) throw new RangeError('tether massRatio must be > 0');
+  return Number.isFinite(massRatio) ? (tipSpeed * massRatio) / (1 + massRatio) : tipSpeed;
 }
 
 // ---------- element ↔ state conversion ----------
@@ -332,6 +403,7 @@ function directionVector(state, direction) {
     case 'retrograde': return scale(vHat, -1);
     case 'normal': return hHat;
     case 'antinormal': return scale(hHat, -1);
+    case 'radial':
     case 'radialOut': return rHat;
     case 'radialIn': return scale(rHat, -1);
     default: throw new Error(`unsupported burn direction "${direction}"`);
@@ -421,13 +493,203 @@ function handleOberthBurn(state, ev, entry) {
   return spent;
 }
 
+/**
+ * Momentum-exchange tether release. Assumptions: rigid, massless tether much
+ * shorter than the orbital radius (release point = current position), impulsive
+ * release, and the facility + payload centre of mass on the probe's current
+ * conic. The Δv is applied along `direction` at `location`, like a burn.
+ */
+function handleTetherRelease(state, ev, entry) {
+  let tipSpeed = ev.tipSpeed_km_s ?? null;
+  if (tipSpeed == null && ev.tetherLength_km != null && ev.rotationPeriod_s != null) {
+    tipSpeed = (TWO_PI * ev.tetherLength_km) / ev.rotationPeriod_s;
+  }
+  const massRatio = ev.massRatio ?? Infinity;
+  let dv;
+  if (tipSpeed != null) {
+    dv = tetherDeltaV(tipSpeed, massRatio);
+    if (ev.deltaV_km_s != null) {
+      entry.warnings.push('tip speed given; ignoring deltaV_km_s');
+    }
+  } else if (ev.deltaV_km_s != null) {
+    if (!(massRatio > 0)) throw new RangeError('tether massRatio must be > 0');
+    dv = ev.deltaV_km_s;
+  } else {
+    throw new Error('tetherRelease needs tipSpeed_km_s, tetherLength_km + rotationPeriod_s, or deltaV_km_s');
+  }
+
+  const warn = moveToLocation(state, ev.location ?? 'current');
+  if (warn) entry.warnings.push(warn);
+  const direction = ev.direction || 'prograde';
+  impulse(state, scale(directionVector(state, direction), dv));
+
+  entry.tether = {
+    tipSpeed_km_s: tipSpeed,
+    massRatio: Number.isFinite(massRatio) ? massRatio : null,
+    direction,
+    payloadDeltaV_km_s: dv,
+    facilityRecoil_km_s: Number.isFinite(massRatio) ? -dv / massRatio : 0,
+    // Payload swings at radius L·M/(M+m) about the centre of mass at ω = tipSpeed/L.
+    payloadAcceleration_g:
+      tipSpeed != null && ev.tetherLength_km != null
+        ? Math.abs((tipSpeed * dv) / ev.tetherLength_km) / G0_KM_S2
+        : null
+  };
+  return Math.abs(dv);
+}
+
+/** Flyby body parameters from the planet table plus per-event overrides. */
+function flybyBody(ev) {
+  const table = PLANETS[ev.body] || {};
+  const body = {
+    name: ev.body ?? null,
+    mu: ev.mu_km3_s2 ?? MU[ev.body],
+    radius_km: ev.bodyRadius_km ?? table.radius_km,
+    orbit_AU: ev.bodyOrbit_AU ?? table.a_AU
+  };
+  if (!body.mu) throw new Error(`unknown flyby body "${ev.body}" (pass mu_km3_s2)`);
+  return body;
+}
+
+/**
+ * Move to the outbound crossing of the body's orbital radius. Returns a
+ * warning string when the conic never reaches it (or has already passed it).
+ */
+function moveToEncounter(state, rBody) {
+  const k = stateToElements(state.r, state.v, state.mu);
+  const bound = Number.isFinite(k.a) && k.a > 0;
+  const miss = `orbit does not reach the flyby body's orbital radius ${(rBody / AU_KM).toPrecision(6)} AU`;
+  if (k.e === 0) {
+    return Math.abs(k.p - rBody) <= 1e-9 * rBody ? null : miss;
+  }
+  const cosNu = (k.p / rBody - 1) / k.e;
+  if (Math.abs(cosNu) > 1 + 1e-9) return miss;
+  const nu = Math.acos(Math.max(-1, Math.min(1, cosNu)));
+  if (!bound && k.nu > nu + 1e-12) return `${miss} again (already outbound past it)`;
+  moveTo(state, nu);
+  return null;
+}
+
+/**
+ * Patched-conic gravity assist. Assumptions: zero-radius sphere of influence at
+ * the probe's position; the body moves on a circular, prograde orbit in the
+ * reference (x–y) plane, so v_body = sqrt(μ_central/r)·(ẑ × r̂); v∞_in is the
+ * probe velocity relative to the body. The flyby rotates v∞ by δ and, if
+ * deltaV_km_s is given, changes its magnitude via a periapsis burn.
+ *
+ * Periapsis comes from `periapsis_km` (from the body's centre) or
+ * `periapsisAltitude_km`. With neither, an unpowered flyby solves r_p from
+ * `turnAngle_deg`: r_p = μ/v∞² · (1/sin(δ/2) − 1). With both, `turnAngle_deg`
+ * is only checked against the computed δ.
+ *
+ * The rotation axis defaults to v∞_in × v_body ("trailing" pass, turning v∞
+ * toward the body's velocity = maximum heliocentric energy gain). `side:
+ * 'leading'` or `bPlaneAngle_deg` rotates that axis about v∞_in (0° trailing,
+ * 180° leading, ±90° out of plane).
+ */
+function handleGravityAssist(state, ev, entry) {
+  const body = flybyBody(ev);
+  let dv = ev.deltaV_km_s ?? 0;
+  if (ev.direction === 'retrograde') {
+    dv = -dv;
+  } else if (ev.direction != null && ev.direction !== 'prograde') {
+    throw new Error(`unsupported flyby burn direction "${ev.direction}" (use "prograde" or "retrograde")`);
+  }
+
+  let rp = null;
+  if (ev.periapsis_km != null) {
+    rp = ev.periapsis_km;
+  } else if (ev.periapsisAltitude_km != null) {
+    if (body.radius_km == null) throw new Error('periapsisAltitude_km needs a body radius (pass bodyRadius_km)');
+    rp = body.radius_km + ev.periapsisAltitude_km;
+  } else if (ev.turnAngle_deg == null) {
+    throw new Error('gravityAssist needs periapsis_km, periapsisAltitude_km or turnAngle_deg');
+  } else if (dv !== 0) {
+    throw new Error('a powered gravityAssist needs periapsis_km or periapsisAltitude_km');
+  }
+  if (rp != null && !(rp > 0)) throw new RangeError('flyby periapsis radius must be > 0');
+
+  const saved = { r: state.r, v: state.v };
+  const skip = (msg) => {
+    state.r = saved.r;
+    state.v = saved.v;
+    entry.status = 'skipped';
+    entry.warnings.push(`${msg}; no state change`);
+    return 0;
+  };
+
+  if ((ev.location ?? 'encounter') === 'encounter') {
+    if (body.orbit_AU == null) throw new Error('encounter location needs bodyOrbit_AU');
+    const warn = moveToEncounter(state, body.orbit_AU * AU_KM);
+    if (warn) return skip(warn);
+  } else if (ev.location !== 'current') {
+    throw new Error(`unsupported flyby location "${ev.location}" (use "encounter" or "current")`);
+  }
+
+  const rMag = norm(state.r);
+  const tangent = cross([0, 0, 1], state.r);
+  if (norm(tangent) <= SMALL * rMag) throw new RangeError('flyby position is on the reference-plane pole');
+  const vBody = scale(unit(tangent), circularSpeed(state.mu, rMag));
+  const vInfInVec = add(state.v, scale(vBody, -1));
+  const vInfIn = norm(vInfInVec);
+  if (vInfIn === 0) return skip('probe is co-moving with the flyby body (v∞ = 0)');
+
+  if (rp == null) {
+    rp = (body.mu / (vInfIn * vInfIn)) * (1 / Math.sin((ev.turnAngle_deg * DEG) / 2) - 1);
+  }
+  if (body.radius_km != null && rp < body.radius_km) {
+    entry.warnings.push(`periapsis ${rp.toPrecision(6)} km is below the surface of ${body.name} (${body.radius_km} km)`);
+  }
+
+  const fb = poweredFlyby(body.mu, rp, vInfIn, dv);
+  if (!fb) return skip('periapsis burn captures the probe at the flyby body');
+  if (ev.turnAngle_deg != null && Math.abs(fb.turnAngle / DEG - ev.turnAngle_deg) > 1e-6) {
+    entry.warnings.push(
+      `turnAngle_deg ${ev.turnAngle_deg}° does not match ${(fb.turnAngle / DEG).toPrecision(6)}° from periapsis and v∞; using the computed angle`
+    );
+  }
+
+  const vHat = scale(vInfInVec, 1 / vInfIn);
+  let axis = cross(vHat, vBody);
+  // v∞ parallel to the body's velocity: turn within the reference plane.
+  axis = norm(axis) > SMALL * norm(vBody) ? unit(axis) : [0, 0, 1];
+  const bPlaneAngle = (ev.bPlaneAngle_deg ?? (ev.side === 'leading' ? 180 : 0)) * DEG;
+  axis = rotate(axis, vHat, bPlaneAngle);
+
+  const vInfOutVec = scale(rotate(vHat, axis, fb.turnAngle), fb.vInfOut);
+  const vBefore = state.v;
+  state.v = add(vBody, vInfOutVec);
+
+  entry.flyby = {
+    body: body.name,
+    encounterRadius_AU: rMag / AU_KM,
+    bodyVelocity_km_s: vBody,
+    periapsis_km: rp,
+    periapsisAltitude_km: body.radius_km != null ? rp - body.radius_km : null,
+    vInfIn_km_s: vInfIn,
+    vInfOut_km_s: fb.vInfOut,
+    eccentricityIn: fb.eIn,
+    eccentricityOut: fb.eOut,
+    turnAngle_deg: fb.turnAngle / DEG,
+    periapsisSpeedIn_km_s: fb.vpIn,
+    periapsisDeltaV_km_s: dv,
+    heliocentricSpeedBefore_km_s: norm(vBefore),
+    heliocentricSpeedAfter_km_s: norm(state.v),
+    heliocentricDeltaV_km_s: norm(add(state.v, scale(vBefore, -1)))
+  };
+  // Only the propulsive periapsis burn counts toward the Δv budget.
+  return Math.abs(dv);
+}
+
 const HANDLERS = {
   burn: handleBurn,
-  oberthBurn: handleOberthBurn
+  oberthBurn: handleOberthBurn,
+  tetherRelease: handleTetherRelease,
+  gravityAssist: handleGravityAssist
 };
 
 // Recognised in the schema but not yet modelled (separate issues).
-const DEFERRED_TYPES = new Set(['tetherRelease', 'gravityAssist', 'hitchhike']);
+const DEFERRED_TYPES = new Set(['hitchhike']);
 
 // ---------- public API ----------
 
@@ -535,13 +797,17 @@ export {
   AU_KM,
   C_KM_S,
   MU,
+  PLANETS,
   applyEvents,
   applyTrajectory,
   circularSpeed,
   elementsToState,
   escapeSpeed,
+  flybyTurnAngle,
   oberthVInf,
+  poweredFlyby,
   stateToElements,
+  tetherDeltaV,
   vInfinity,
   visViva
 };
