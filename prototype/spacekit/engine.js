@@ -439,6 +439,46 @@ function impulse(state, dv) {
 
 // ---------- event handlers ----------
 
+/** First-order ion drive: integrate all future radioactive decay energy,
+ * then apply the energy/propellant-limited rocket Δv at the current position.
+ * The exhaust speed is constant; this does not propagate a powered trajectory.
+ */
+function handleIonDrive(state, ev, entry) {
+  for (const key of ['isp_s', 'power_W', 'halfLife_days', 'wetMass_kg', 'dryMass_kg']) {
+    if (!Number.isFinite(ev[key]) || ev[key] <= 0) {
+      throw new RangeError(`ionDrive ${key} must be finite and positive`);
+    }
+  }
+  for (const key of ['conversionEfficiency', 'thrusterEfficiency']) {
+    if (!Number.isFinite(ev[key]) || ev[key] <= 0 || ev[key] > 1) {
+      throw new RangeError(`ionDrive ${key} must satisfy 0 < efficiency ≤ 1`);
+    }
+  }
+  if (ev.wetMass_kg <= ev.dryMass_kg) throw new RangeError('ionDrive wetMass_kg must exceed dryMass_kg');
+  if (!['prograde', 'retrograde', 'radial', 'normal', 'radialOut'].includes(ev.direction)) {
+    throw new Error('ionDrive requires a supported direction');
+  }
+  const exhaustSpeed_m_s = ev.isp_s * G0_KM_S2 * 1e3;
+  const decayTime_s = ev.halfLife_days * 86400 / Math.LN2;
+  const initialJetPower_W = ev.power_W * ev.conversionEfficiency * ev.thrusterEfficiency;
+  const jetEnergy_J = initialJetPower_W * decayTime_s;
+  const propellantUsed_kg = Math.min(ev.wetMass_kg - ev.dryMass_kg, 2 * jetEnergy_J / exhaustSpeed_m_s ** 2);
+  const finalMass_kg = Math.max(ev.dryMass_kg, ev.wetMass_kg - propellantUsed_kg);
+  const dv = exhaustSpeed_m_s / 1e3 * Math.log(ev.wetMass_kg / finalMass_kg);
+  const initialAcceleration_m_s2 = 2 * initialJetPower_W / exhaustSpeed_m_s / ev.wetMass_kg;
+  if (![exhaustSpeed_m_s, decayTime_s, initialJetPower_W, jetEnergy_J, propellantUsed_kg,
+    finalMass_kg, dv, initialAcceleration_m_s2].every(Number.isFinite)) {
+    throw new RangeError('ionDrive parameters overflow the decay calculation');
+  }
+  impulse(state, scale(directionVector(state, ev.direction), dv));
+  entry.ionDrive = {
+    exhaustSpeed_km_s: exhaustSpeed_m_s / 1e3, decayTime_s,
+    initialJetPower_W, jetEnergy_J, propellantUsed_kg, finalMass_kg, initialAcceleration_m_s2,
+    model: 'all future decay energy; equivalent impulse at start; no finite-thrust propagation'
+  };
+  return dv;
+}
+
 /** Constant-power reflective cavity: integrate F = 2 N P / c over the shot.
  * Like ideas_calc.py, collapse the short boost to the current launch position;
  * this is not finite-thrust propagation or an optical cavity simulation.
@@ -753,6 +793,7 @@ function handleGravityAssist(state, ev, entry) {
 }
 
 const HANDLERS = {
+  ionDrive: handleIonDrive,
   laserCavityBoost: handleLaserCavityBoost,
   burn: handleBurn,
   oberthBurn: handleOberthBurn,

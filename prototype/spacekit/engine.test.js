@@ -33,6 +33,92 @@ const near = (actual, expected, tol, msg) =>
 
 const circular1AU = { type: 'keplerian', a: 1, e: 0, units: { a: 'AU', angles: 'deg' } };
 
+// ---------- ionDrive ----------
+
+const conceptE = JSON.parse(readFileSync(new URL('./scenarios/scenario-e.json', import.meta.url)));
+const ionEvent = conceptE.events[0];
+const ionReference = (ev) => JSON.parse(execFileSync('python3', ['-c', `
+import contextlib, io, json, runpy, sys
+with contextlib.redirect_stdout(io.StringIO()):
+    calc = runpy.run_path(sys.argv[1])
+ev = json.loads(sys.argv[2])
+print(json.dumps(calc['po210_ion_drive'](ev['isp_s'], ev['power_W'], ev['halfLife_days'],
+    ev['conversionEfficiency'], ev['thrusterEfficiency'], ev['wetMass_kg'], ev['dryMass_kg'])))
+`, new URL('../../analysis/ideas_calc.py', import.meta.url).pathname, JSON.stringify(ev)], { encoding: 'utf8' }));
+
+test('Concept E matches the Python Po-210 reference, rocket equation and 315–320 km/s escape', () => {
+  const ref = ionReference(ionEvent);
+  const out = applyTrajectory(conceptE);
+  const drive = out.log[0].ionDrive;
+  near(out.vInf_km_s, ref.vInf_km_s, 0.001, 'Python v∞ (rounded solar constants)');
+  near(out.totalDeltaV_km_s, ref.deltaV_km_s, 1e-10, 'Python Δv');
+  for (const key of ['exhaustSpeed_km_s', 'jetEnergy_J', 'initialJetPower_W',
+    'propellantUsed_kg', 'finalMass_kg', 'initialAcceleration_m_s2']) {
+    near(drive[key], ref[key], Math.max(1e-12, Math.abs(ref[key]) * 1e-14), key);
+  }
+  near(drive.jetEnergy_J, 2.08636761066495e11, 0.001);
+  near(drive.exhaustSpeed_km_s, 322.983560778637, 1e-9);
+  near(drive.initialJetPower_W, 12096, 1e-9);
+  near(drive.propellantUsed_kg, 4, 1e-12);
+  near(drive.finalMass_kg, 2.4, 1e-12);
+  near(drive.initialAcceleration_m_s2, 0.0117033814, 1e-9);
+  near(out.totalDeltaV_km_s, 316.791724653578, 1e-9);
+  near(out.vInf_km_s, 315.388, 0.001);
+  assert.ok(out.vInf_km_s >= 315 && out.vInf_km_s <= 320);
+  near(out.vInf_km_s ** 2, out.totalDeltaV_km_s ** 2 - MU.Sun / AU_KM, 1e-9);
+  near(out.finalState.v_km_s[0], out.totalDeltaV_km_s, 1e-10, 'radial thrust');
+  near(out.finalState.v_km_s[1], circularSpeed(MU.Sun, AU_KM), 1e-10, 'tangential speed retained');
+  assert.deepEqual(out.finalState.r_km, [AU_KM, 0, 0]);
+  assert.match(drive.model, /equivalent impulse at start/);
+});
+
+test('ion drive caps propellant by decay energy and dry mass', () => {
+  for (const [key, value] of [['power_W', ionEvent.power_W / 2],
+    ['halfLife_days', ionEvent.halfLife_days / 2], ['conversionEfficiency', 0.15], ['thrusterEfficiency', 0.35],
+    ['power_W', ionEvent.power_W * 2], ['isp_s', ionEvent.isp_s * 2]]) {
+    const ev = { ...ionEvent, [key]: value };
+    const ref = ionReference(ev);
+    const out = applyEvents(circular1AU, [ev]);
+    near(out.totalDeltaV_km_s, ref.deltaV_km_s, 1e-10, key);
+    near(out.vInf_km_s, ref.vInf_km_s, 0.001, key);
+    near(out.log[0].ionDrive.propellantUsed_kg, ref.propellantUsed_kg, 1e-12, key);
+    assert.ok(out.log[0].ionDrive.finalMass_kg >= ionEvent.dryMass_kg);
+  }
+  const weak = applyEvents(circular1AU, [{ ...ionEvent, power_W: ionEvent.power_W / 2 }]);
+  near(weak.log[0].ionDrive.propellantUsed_kg, 2, 1e-12);
+  near(weak.log[0].ionDrive.finalMass_kg, 4.4, 1e-12);
+});
+
+test('ion drive uses local impulse directions and composes with later events', () => {
+  const dv = applyEvents(circular1AU, [ionEvent]).totalDeltaV_km_s;
+  for (const direction of ['prograde', 'retrograde', 'radial', 'normal']) {
+    const out = applyEvents(circular1AU, [{ ...ionEvent, direction }, { type: 'burn', deltaV_km_s: 1, direction: 'prograde' }]);
+    const expected = applyEvents(circular1AU, [{ type: 'burn', deltaV_km_s: dv, direction }, { type: 'burn', deltaV_km_s: 1, direction: 'prograde' }]);
+    assert.deepEqual(out.finalState, expected.finalState);
+    near(out.totalDeltaV_km_s, dv + 1, 1e-12);
+  }
+});
+
+test('ion drive rejects invalid physical inputs and numerical overflow', () => {
+  for (const key of ['isp_s', 'power_W', 'halfLife_days', 'wetMass_kg', 'dryMass_kg']) {
+    for (const value of [undefined, 0, -1, NaN, Infinity, '1']) {
+      assert.throws(() => applyEvents(circular1AU, [{ ...ionEvent, [key]: value }]), new RegExp(key));
+    }
+  }
+  for (const key of ['conversionEfficiency', 'thrusterEfficiency']) {
+    for (const value of [undefined, 0, -0.1, 1.1, NaN, Infinity, '0.3']) {
+      assert.throws(() => applyEvents(circular1AU, [{ ...ionEvent, [key]: value }]), new RegExp(key));
+    }
+  }
+  for (const dryMass_kg of [6.4, 7]) {
+    assert.throws(() => applyEvents(circular1AU, [{ ...ionEvent, dryMass_kg }]), /wetMass_kg/);
+  }
+  for (const direction of [undefined, 'inward']) {
+    assert.throws(() => applyEvents(circular1AU, [{ ...ionEvent, direction }]), /direction/);
+  }
+  assert.throws(() => applyEvents(circular1AU, [{ ...ionEvent, halfLife_days: Number.MAX_VALUE }]), /overflow/);
+});
+
 // ---------- laserCavityBoost ----------
 
 test('Concept D matches the Python cavity reference and checked 306.9 km/s escape', () => {

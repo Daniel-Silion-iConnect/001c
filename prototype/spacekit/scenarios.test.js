@@ -168,12 +168,14 @@ test('picker lists only index entries and defaults to the fastest final v∞', (
 });
 
 test('exotic picker entries clearly label speculation and expose feasibility and showstoppers', () => {
-  const entry = index.find(entry => entry.id === 'concept-d');
-  assert.equal(entry.category, 'exotic');
-  const option = pickerOptions(index).find(option => option.id === entry.id);
-  assert.match(option.label, /Exotic · speculative/);
-  assert.match(option.feasibility, /TRL 2/);
-  assert.equal(option.showstopper, entry.showstopper);
-  assert.ok(option.title.includes(`Showstopper: ${entry.showstopper}`));
-  assert.ok(option.title.includes(`Feasibility: ${entry.feasibility}`));
+  for (const id of ['concept-d', 'concept-e']) {
+    const entry = index.find(entry => entry.id === id);
+    assert.equal(entry.category, 'exotic');
+    const option = pickerOptions(index).find(option => option.id === entry.id);
+    assert.match(option.label, /Exotic · speculative/);
+    assert.match(option.feasibility, /TRL 2/);
+    assert.equal(option.showstopper, entry.showstopper);
+    assert.ok(option.title.includes(`Showstopper: ${entry.showstopper}`));
+    assert.ok(option.title.includes(`Feasibility: ${entry.feasibility}`));
+  }
 });

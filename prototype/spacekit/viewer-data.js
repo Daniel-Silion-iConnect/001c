@@ -30,9 +30,14 @@ export function validateScenario(doc) {
   require(Array.isArray(doc.events), 'events must be an array.');
   doc.events.forEach((ev, index) => {
     const at = `events[${index}]`;
-    require(ev && ['burn', 'oberthBurn', 'tetherRelease', 'hitchhike', 'gravityAssist', 'solarSail', 'laserCavityBoost'].includes(ev.type), `${at}: unsupported event type.`);
+    require(ev && ['burn', 'oberthBurn', 'tetherRelease', 'hitchhike', 'gravityAssist', 'solarSail', 'laserCavityBoost', 'ionDrive'].includes(ev.type), `${at}: unsupported event type.`);
     require(ev.id === undefined || (typeof ev.id === 'string' && ev.id.trim()), `${at}: id must be a nonempty string.`);
-    if (ev.type === 'laserCavityBoost') {
+    if (ev.type === 'ionDrive') {
+      require(['isp_s', 'power_W', 'halfLife_days', 'wetMass_kg', 'dryMass_kg'].every(key => number(ev[key]) && ev[key] > 0)
+        && ev.wetMass_kg > ev.dryMass_kg, `${at}: invalid ionDrive power, decay, Isp or masses.`);
+      require(['conversionEfficiency', 'thrusterEfficiency'].every(key => number(ev[key]) && ev[key] > 0 && ev[key] <= 1), `${at}: invalid ionDrive efficiency.`);
+      require(['prograde', 'retrograde', 'radial', 'normal'].includes(ev.direction), `${at}: invalid direction.`);
+    } else if (ev.type === 'laserCavityBoost') {
       require(['power_MW', 'duration_s', 'probeMass_kg'].every(key => number(ev[key]) && ev[key] > 0)
         && number(ev.recyclingFactor) && ev.recyclingFactor >= 1, `${at}: invalid laser-cavity parameters.`);
       require(['prograde', 'retrograde', 'radial', 'normal'].includes(ev.direction), `${at}: invalid direction.`);

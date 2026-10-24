@@ -12,6 +12,26 @@ const check = (name, expected, change) => test(name, () => {
 });
 
 check('example covers impulse and flyby event types', true, value => assert.equal(value.events.length, 5));
+const ion = { type: 'ionDrive', isp_s: 32935.157345131825, power_W: 57600, halfLife_days: 138.376,
+  wetMass_kg: 6.4, dryMass_kg: 2.4, conversionEfficiency: 0.3, thrusterEfficiency: 0.7, direction: 'radial' };
+check('decay-powered ion drive with explicit Isp and mass budget', true, value => { value.events = [ion]; });
+check('ion drive allows unity efficiencies and optional notes', true, value => {
+  value.events = [{ ...ion, conversionEfficiency: 1, thrusterEfficiency: 1, id: 'ion', notes: 'Ideal efficiency' }];
+});
+for (const key of Object.keys(ion)) {
+  check(`ion drive requires ${key}`, false, value => {
+    const ev = { ...ion }; delete ev[key]; value.events = [ev];
+  });
+}
+for (const key of ['isp_s', 'power_W', 'halfLife_days', 'wetMass_kg', 'dryMass_kg', 'conversionEfficiency', 'thrusterEfficiency']) {
+  for (const invalid of [0, -1, '1']) check(`ion drive rejects ${key} = ${invalid}`, false, value => {
+    value.events = [{ ...ion, [key]: invalid }];
+  });
+}
+for (const extra of [{ conversionEfficiency: 1.1 }, { thrusterEfficiency: 1.1 }, { direction: 'inward' },
+  { deltaV_km_s: 317 }, { beta: 0.25 }]) {
+  check(`ion drive rejects ${JSON.stringify(extra)}`, false, value => { value.events = [{ ...ion, ...extra }]; });
+}
 const cavity = { type: 'laserCavityBoost', power_MW: 392, duration_s: 714, recyclingFactor: 300, probeMass_kg: 2, direction: 'prograde' };
 check('constant-power cavity boost', true, value => { value.events = [cavity]; });
 check('single-pass cavity with notes', true, value => { value.events = [{ ...cavity, recyclingFactor: 1, id: 'shot', notes: 'One reflection' }]; });

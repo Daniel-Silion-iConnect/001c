@@ -145,10 +145,34 @@ v_e1 = math.sqrt(2 * MU_SUN / AU); v_earth = math.sqrt(MU_SUN / AU)
 cavity = laser_cavity_boost(Pin / 1e6, t, N, m)
 print(f"  v_inf={cavity['vInf_km_s']:.1f} km/s (agent 307)")
 print("\n== Claude: Po-210 direct-charge ion drive ==")
-P0 = 400 * 144; tau = 138.376 * 86400 / math.log(2); Pj = P0 * 0.3 * 0.7; E = Pj * tau
-ve = math.sqrt(2 * E / 4); dv = ve * math.log(6.4 / 2.4)
+def po210_ion_drive(isp_s, power_W, half_life_days, conversion_efficiency,
+                   thruster_efficiency, wet_mass_kg, dry_mass_kg):
+    """All future exponential decay energy, at constant exhaust speed.
+
+    Cap expelled propellant by both jet energy and available wet-minus-dry
+    mass. For Concept E's vInf, apply the equivalent impulse radially outward
+    from a circular 1 AU solar orbit (no finite-thrust propagation).
+    """
+    tau = half_life_days * 86400 / math.log(2)
+    jet_power = power_W * conversion_efficiency * thruster_efficiency
+    energy = jet_power * tau
+    ve = isp_s * G0
+    propellant = min(wet_mass_kg - dry_mass_kg, 2 * energy / ve**2)
+    final_mass = max(dry_mass_kg, wet_mass_kg - propellant)
+    dv = ve * math.log(wet_mass_kg / final_mass)
+    return {"deltaV_km_s": kms(dv), "exhaustSpeed_km_s": kms(ve),
+            "jetEnergy_J": energy, "initialJetPower_W": jet_power,
+            "propellantUsed_kg": propellant, "finalMass_kg": final_mass,
+            "initialAcceleration_m_s2": 2 * jet_power / ve / wet_mass_kg,
+            "vInf_km_s": kms(math.sqrt(max(0, dv**2 - MU_SUN / AU)))}
+
+P0 = 400 * 144; tau = 138.376 * 86400 / math.log(2); Pj = P0 * 0.3 * 0.7
+isp = math.sqrt(2 * Pj * tau / 4) / G0
+ion = po210_ion_drive(isp, P0, 138.376, 0.3, 0.7, 6.4, 2.4)
+E = ion['jetEnergy_J']; ve = ion['exhaustSpeed_km_s'] * 1e3; dv = ion['deltaV_km_s'] * 1e3
 V = 131.29 * 1.6605e-27 * ve**2 / (2 * 1.602e-19)
 print(f"  P0={P0/1e3:.1f} kW E_jet={E:.2e} J v_e={kms(ve):.0f} dv={kms(dv):.0f} km/s V={V/1e3:.0f} kV a0={2*Pj/ve/6.4:.4f} (agent 57.6,2.09e11,323,317,71,0.0117)")
+print(f"  Concept E radial equivalent impulse at 1 AU: v_inf={ion['vInf_km_s']:.3f} km/s; Isp={isp:.6f} s")
 print("\n== Antigravity lunar riffs ==")
 for nm, s, rho in [("anhydrous lunar glass", 7.5e9, 2700), ("S-2 glass", 3.0e9, 2490), ("T1000G", 3.8e9, 1800)]:
     print(f"  {nm}: v_tip={kms(math.sqrt(2*1.6*s/rho)):.2f} km/s")

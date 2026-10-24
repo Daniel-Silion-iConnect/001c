@@ -59,6 +59,9 @@
           },
           {
             "$ref": "#/$defs/laserCavityBoost"
+          },
+          {
+            "$ref": "#/$defs/ionDrive"
           }
         ]
       }
@@ -681,6 +684,72 @@
         "duration_s",
         "recyclingFactor",
         "probeMass_kg",
+        "direction"
+      ],
+      "additionalProperties": false
+    },
+    "ionDrive": {
+      "type": "object",
+      "description": "Constant-Isp ion drive powered by exponential radioactive decay. All future jet energy limits propellant use; rocket delta-v is an equivalent impulse at the start. Engine requires wetMass_kg > dryMass_kg.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notes": {
+          "type": "string"
+        },
+        "type": {
+          "const": "ionDrive"
+        },
+        "isp_s": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "power_W": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "halfLife_days": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "wetMass_kg": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "dryMass_kg": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "conversionEfficiency": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "thrusterEfficiency": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "direction": {
+          "enum": [
+            "prograde",
+            "retrograde",
+            "radial",
+            "normal"
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "isp_s",
+        "power_W",
+        "halfLife_days",
+        "wetMass_kg",
+        "dryMass_kg",
+        "conversionEfficiency",
+        "thrusterEfficiency",
         "direction"
       ],
       "additionalProperties": false

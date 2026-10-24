@@ -1,0 +1,36 @@
+{
+  "name": "Concept E: Po-210 direct-charge ion drive",
+  "description": "Exotic and speculative (TRL 2\u20133). Matches analysis/ideas_calc.py: 0.4 kg Po-210 at 144 W/g supplies 57.6 kW thermal initially, with 138.376 day half-life. Assumed 30% direct-charge conversion and 70% ion-thruster efficiency yield 2.086e11 J of total jet energy, 323 km/s exhaust, and 316.792 km/s rocket delta-v from 6.4 kg wet / 2.4 kg dry. A radial outward equivalent impulse from a circular 1 AU orbit gives solar v\u221e 315.388 km/s. All future exponential decay energy is integrated at constant Isp and applied at the start; the months-long powered path, changing gravity, steering, thermal management and Earth escape are not propagated. The 2.4 kg dry mass includes the isotope and hardware. Showstopper: 0.4 kg Po-210 is about four times world output and loses about 0.5% of its power per day; 30% conversion efficiency is assumed versus a few percent demonstrated.",
+  "epoch": "2026-10-24T00:00:00Z",
+  "centralBody": "Sun",
+  "frame": "ECLIPJ2000",
+  "initialElements": {
+    "type": "keplerian",
+    "a": 1,
+    "e": 0,
+    "i": 0,
+    "raan": 0,
+    "argp": 0,
+    "nu": 0,
+    "units": {
+      "a": "AU",
+      "angles": "deg"
+    }
+  },
+  "events": [
+    {
+      "id": "po210-ion-escape",
+      "type": "ionDrive",
+      "isp_s": 32935.157345131825,
+      "power_W": 57600,
+      "halfLife_days": 138.376,
+      "conversionEfficiency": 0.3,
+      "thrusterEfficiency": 0.7,
+      "wetMass_kg": 6.4,
+      "dryMass_kg": 2.4,
+      "direction": "radial",
+      "notes": "Constant 323 km/s xenon exhaust (~71 kV). Integrate all future decay energy (an infinite-time upper bound) and apply 316.792 km/s radially outward at launch, retaining the initial tangential orbital velocity. No finite-thrust propagation: the preview shows the post-impulse coast, not the actual powered mission."
+    }
+  ],
+  "targetAsymptotic_km_s": 315.388
+}
