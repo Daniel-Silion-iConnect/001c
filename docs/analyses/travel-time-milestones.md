@@ -41,8 +41,12 @@ distance_km = distance_AU × AU_KM   (or distance_ly × LIGHT_YEAR_KM)
 cruise_years = distance_km / vInf_km_s / JULIAN_YEAR_S
 ```
 
-Times below 1,000 years show one decimal place in `yr`; longer times show two
-decimals in `k yr` (thousands of years). At exactly 0.001c, the three stellar
+Times below 1,000 years show up to one decimal place in `yr` (`0.6 yr`, `48 yr`).
+Longer times use three significant figures and comma grouping (`6,470 yr`,
+`11,990 yr` rounds to `12,000 yr`); from 1,000,000 they use `million yr`
+(`1.2 million yr`), also with up to three significant figures. Rounding to a
+unit boundary promotes the unit (`999,500 yr` becomes `1 million yr`).
+At exactly 0.001c, the three stellar
 milestones take 4,240, 5,960 and 7,860 years. Pluto takes about 0.625 years,
 the heliopause 1.898 years, and the Oort edges 31.625 and 1,581.251 years.
 

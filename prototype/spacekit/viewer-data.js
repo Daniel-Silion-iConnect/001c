@@ -155,7 +155,12 @@ export function buildTravelTimeRows(vInf_km_s) {
 export function formatTravelYears(years) {
   if (years === null) return '—';
   if (!Number.isFinite(years) || years < 0) throw new Error('Time must be null or nonnegative and finite.');
-  return years < 1000 ? `${years.toFixed(1)} yr` : `${(years / 1000).toFixed(2)}k yr`;
+  // Round before choosing the unit so 999,999 years becomes 1 million, not 1,000,000 yr.
+  const rounded = years < 1000 ? Number(years.toFixed(1)) : Number(years.toPrecision(3));
+  if (rounded >= 1000000) {
+    return `${(rounded / 1000000).toLocaleString('en-US', { maximumSignificantDigits: 3 })} million yr`;
+  }
+  return `${rounded.toLocaleString('en-US', { maximumFractionDigits: 1 })} yr`;
 }
 
 /** Initial state plus the actual post-event escape speeds, including skipped steps.

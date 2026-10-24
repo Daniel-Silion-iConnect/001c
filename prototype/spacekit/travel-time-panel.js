@@ -9,7 +9,7 @@ export function createTravelTimePanel(vInf_km_s) {
     <h2 id="travel-time-title">Travel time</h2>
     <p class="muted travel-speed"></p>
     <table aria-describedby="travel-time-note">
-      <caption>Cruise estimates · k yr = thousands of years</caption>
+      <caption>Cruise estimates in years (yr)</caption>
       <thead><tr><th scope="col">Milestone</th><th scope="col">Scenario</th><th scope="col">0.001c</th></tr></thead>
       <tbody></tbody>
     </table>

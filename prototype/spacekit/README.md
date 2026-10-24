@@ -40,8 +40,10 @@ progress; above-target percentages remain visible while the bar caps at 100%.
 The **Travel time** panel compares distance / final scenario v∞ with exactly
 0.001c (299.792458 km/s) for Pluto, the heliopause, the Oort cloud edges, Proxima,
 Barnard's Star and Wolf 359. It stays tied to the loaded scenario's final result
-as you inspect other legs. Times use years or `k yr` (thousands of years); bound
-or zero-speed escape states show “—”. This cruise estimate ignores time spent
+as you inspect other legs. Times use years (`0.6 yr`, `48 yr`), comma-grouped years
+rounded to three significant figures from 1,000 (`6,470 yr`, `12,000 yr`), and
+`million yr` from 1,000,000 (`1.2 million yr`). Bound or zero-speed escape states
+show “—”. This cruise estimate ignores time spent
 leaving the Sun's gravity, acceleration, braking and stellar motion. See
 [milestone sources and assumptions](../../docs/analyses/travel-time-milestones.md).
 
@@ -73,7 +75,10 @@ two-body flight times; it is not a mission epoch or scheduled encounter solution
 Numbered markers use actual post-event positions, with offset labels for
 coincident markers. The Sun marker and Sun/Earth/Jupiter labels use screen-space
 HTML, with 14px text and an 18px central-body marker at every zoom. On narrow
-screens the plot and controls stack in a single scrolling page.
+screens the plot and controls stack in a single scrolling page. Earth and Jupiter
+labels have dots at fixed 315° points on their rings, with leader lines keeping
+the connection visible when text shifts to avoid overlap. Both renderers project
+these anchors on every redraw; an offscreen anchor hides its label and leader.
 
 The engine models burns, tethers, gravity assists, and solar sails; `hitchhike`
 is skipped with a warning under Engine notes. An Oberth event can include an implicit perihelion-retargeting burn; its
