@@ -8,6 +8,24 @@ Skeleton only. Loads the solar system and a sample probe orbit.
 ## How to run
 Open `index.html` in a browser (or serve the directory).
 
+## Engine (`engine.js`)
+Patched-conic / impulsive-Δv engine (single central body, two-body conics).
+
+```js
+import { applyEvents, applyTrajectory } from './engine.js';
+const out = applyTrajectory(schemaExampleJson, { ephemerisSamples: 64 });
+// out: { finalElements, bound, vInf_km_s, asymptoticSpeed_km_s, fractionOfC,
+//        totalDeltaV_km_s, specificEnergy_km2_s2, finalState, ephemerisPoints, log }
+```
+
+- Speeds from vis-viva `v² = μ(2/r − 1/a)`, elliptic (a > 0), parabolic (`rp`, a = ∞) and hyperbolic (a < 0).
+- Burns are applied to the state vector, then elements are recomputed.
+- Oberth: `oberthBurn` burns prograde at perihelion, so `v∞ = sqrt((v_p + Δv)² − v_esc²)` emerges directly. No multiplier.
+- Bound orbits report `bound: true`, `vInf_km_s: null`, `fractionOfC: null`.
+- `tetherRelease`, `gravityAssist`, `hitchhike` and unknown types are passed through with a warning in `log` (no state change yet).
+
+Tests: `npm test` from the repo root (Node ≥ 18, no dependencies).
+
 ## Next steps for agents
 - Load trajectories from the JSON schema defined in `docs/ORBITAL_NOTATION.md`.
 - Add event application (burns, tether releases, Oberth).

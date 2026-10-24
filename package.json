@@ -1,9 +1,12 @@
 {
   "name": "001c",
   "private": true,
+  "type": "module",
+  "description": "0.001c probe mission design prototypes",
   "scripts": {
-    "test": "node scripts/validate-schema.mjs && node --test tests/trajectory-schema.test.mjs"
+    "test": "node scripts/validate-schema.mjs && node --test tests/trajectory-schema.test.mjs prototype/spacekit/engine.test.js"
   },
+  "engines": { "node": ">=18" },
   "devDependencies": {
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1"
