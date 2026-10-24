@@ -71,17 +71,37 @@ E_spin = 0.5 * 1.0 * 4e3**2  # per kg payload
 print(f"  energy per 1 kg at 4 km/s: {E_spin/3.6e6:.2f} kWh (power is trivial; strength is the limit)")
 
 print("\n== Codex: Chirped Pellet Slipstream ==")
-m, M, w, eta = 2.0, 3.75, 100e3, 0.8
-dv = 2 * eta * w * M / m
-r5 = 5 * AU; vesc5 = math.sqrt(2 * MU_SUN / r5); dg = MU_SUN * 30 * 86400 / r5**2
-vinf = math.sqrt((vesc5 + dv - dg)**2 - vesc5**2)
+def chirped_pellet_stream(pellet_mass_kg, pellet_count, relative_velocity_km_s,
+                         momentum_efficiency, probe_mass_kg):
+    """Ideal reflection at fixed relative speed, with constant probe mass.
+
+    Concept F's speed budget starts at escape speed at 5 AU and debits an
+    upper bound on gravity loss over 30 days at that radius. Collapse this
+    to an equivalent prograde impulse at 5 AU; no powered-leg propagation.
+    Launch KE uses the original midpoint sum over probe speeds 0..delta-v,
+    excluding initial heliocentric motion and launcher/ionisation losses.
+    """
+    mass = pellet_mass_kg * pellet_count
+    w = relative_velocity_km_s * 1e3
+    dv = 2 * momentum_efficiency * w * mass / probe_mass_kg
+    r = 5 * AU
+    vesc = math.sqrt(2 * MU_SUN / r)
+    gravity_loss = MU_SUN * 30 * 86400 / r**2
+    energy = sum(0.5 * pellet_mass_kg * (w + (i + 0.5) / pellet_count * dv)**2
+                 for i in range(pellet_count))
+    return {"deltaV_km_s": kms(dv), "totalPelletMass_kg": mass,
+            "launchEnergy_J": energy, "escapeSpeed_km_s": kms(vesc),
+            "gravityLoss_km_s": kms(gravity_loss),
+            "initialSpeed_km_s": kms(vesc - gravity_loss),
+            "vInf_km_s": kms(math.sqrt(max(0, (vesc + dv - gravity_loss)**2 - vesc**2)))}
+
+pellets = chirped_pellet_stream(0.000375, 10000, 100, 0.8, 2)
+dv = pellets['deltaV_km_s'] * 1e3
+r5 = 5 * AU; vesc5 = pellets['escapeSpeed_km_s'] * 1e3
+dg = pellets['gravityLoss_km_s'] * 1e3; vinf = pellets['vInf_km_s'] * 1e3
 print(f"  dv={kms(dv):.1f}  vesc(5AU)={kms(vesc5):.2f}  gravity loss<={kms(dg):.3f}  v_inf={kms(vinf):.1f} km/s (agent 317.7)")
 # pellet KE: each pellet launched at v_probe+w; integrate over probe speed 0..300 km/s
-N = 10000; E = 0.0
-for i in range(N):
-    vp = (i + 0.5) / N * dv
-    dM = M / N
-    E += 0.5 * dM * (vp + w)**2
+E = pellets['launchEnergy_J']
 print(f"  pellet launch KE ~{E/1e9:.0f} GJ (agent ~150)")
 
 print("\n== Codex: Solar-Wind Bank Shot ==")

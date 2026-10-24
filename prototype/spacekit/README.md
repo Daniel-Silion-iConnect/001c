@@ -19,7 +19,7 @@ installation is required. The 3D renderer imports pinned Three.js modules from
 jsDelivr; the canvas renderer and engine have no external dependencies.
 
 The default scenario is the fastest final v∞ in `scenarios/index.json`
-(currently Concept C). The picker lists that index in descending final v∞ order,
+(currently Concept F). The picker lists that index in descending final v∞ order,
 including Voyager 1 and 2. The schema example remains available by explicit path
 for testing. Load another file with the form or
 `?scenario=other-trajectory.json` (paths resolve relative to the viewer). Absolute
@@ -158,6 +158,14 @@ multiplier. `viewer-data.js` builds per-event legs from `applyEvents` and adapts
 schema inputs; `viewer.js` handles loading, HUD, and renderer selection.
 
 ## Reference scenarios
+
+Concept F adds an exotic, speculative chirped `pelletStream`: 3.75 kg of
+reflected pellets gives a 2 kg probe 300 km/s Δv and solar v∞ 317.665 km/s.
+Its initial speed at 5 AU already includes the Python reference's conservative
+30-day gravity-loss allowance. The preview applies an equivalent impulse and
+shows the resulting coast. The picker displays feasibility and the showstopper:
+aiming and ionising every pellet over AU scales. See the
+[event contract](../../docs/ORBITAL_NOTATION.md#pelletstream) for assumptions.
 
 `scenarios/` holds Voyager 1 and 2 plus the baseline variants of Concepts A, B and C from
 [reference-scenarios.md](../../docs/analyses/reference-scenarios.md) as schema-valid

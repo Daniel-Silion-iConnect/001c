@@ -12,6 +12,29 @@ const check = (name, expected, change) => test(name, () => {
 });
 
 check('example covers impulse and flyby event types', true, value => assert.equal(value.events.length, 5));
+const pellets = { type: 'pelletStream', pelletMass_kg: 0.000375, pelletCount: 10000,
+  relativeVelocity_km_s: 100, momentumEfficiency: 0.8, probeMass_kg: 2, direction: 'prograde' };
+check('chirped pellet stream with explicit momentum budget', true, value => { value.events = [pellets]; });
+for (const momentumEfficiency of [0, 1]) {
+  check(`pellet stream accepts efficiency ${momentumEfficiency}`, true, value => {
+    value.events = [{ ...pellets, momentumEfficiency, id: 'pellets', notes: 'Ideal reflection' }];
+  });
+}
+for (const key of Object.keys(pellets)) {
+  check(`pellet stream requires ${key}`, false, value => {
+    const ev = { ...pellets }; delete ev[key]; value.events = [ev];
+  });
+}
+for (const key of ['pelletMass_kg', 'pelletCount', 'relativeVelocity_km_s', 'probeMass_kg']) {
+  for (const invalid of [0, -1, '1']) check(`pellet stream rejects ${key} = ${invalid}`, false, value => {
+    value.events = [{ ...pellets, [key]: invalid }];
+  });
+}
+for (const extra of [{ pelletCount: 1.5 }, { pelletCount: Number.MAX_SAFE_INTEGER + 1 },
+  { momentumEfficiency: -0.1 }, { momentumEfficiency: 1.1 }, { direction: 'inward' },
+  { deltaV_km_s: 300 }, { mass_kg: 3.75 }]) {
+  check(`pellet stream rejects ${JSON.stringify(extra)}`, false, value => { value.events = [{ ...pellets, ...extra }]; });
+}
 const ion = { type: 'ionDrive', isp_s: 32935.157345131825, power_W: 57600, halfLife_days: 138.376,
   wetMass_kg: 6.4, dryMass_kg: 2.4, conversionEfficiency: 0.3, thrusterEfficiency: 0.7, direction: 'radial' };
 check('decay-powered ion drive with explicit Isp and mass budget', true, value => { value.events = [ion]; });

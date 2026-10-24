@@ -30,9 +30,14 @@ export function validateScenario(doc) {
   require(Array.isArray(doc.events), 'events must be an array.');
   doc.events.forEach((ev, index) => {
     const at = `events[${index}]`;
-    require(ev && ['burn', 'oberthBurn', 'tetherRelease', 'hitchhike', 'gravityAssist', 'solarSail', 'laserCavityBoost', 'ionDrive'].includes(ev.type), `${at}: unsupported event type.`);
+    require(ev && ['burn', 'oberthBurn', 'tetherRelease', 'hitchhike', 'gravityAssist', 'solarSail', 'laserCavityBoost', 'ionDrive', 'pelletStream'].includes(ev.type), `${at}: unsupported event type.`);
     require(ev.id === undefined || (typeof ev.id === 'string' && ev.id.trim()), `${at}: id must be a nonempty string.`);
-    if (ev.type === 'ionDrive') {
+    if (ev.type === 'pelletStream') {
+      require(['pelletMass_kg', 'relativeVelocity_km_s', 'probeMass_kg'].every(key => number(ev[key]) && ev[key] > 0)
+        && Number.isSafeInteger(ev.pelletCount) && ev.pelletCount > 0, `${at}: invalid pelletStream masses, count or relative velocity.`);
+      require(number(ev.momentumEfficiency) && ev.momentumEfficiency >= 0 && ev.momentumEfficiency <= 1, `${at}: invalid pelletStream momentum efficiency.`);
+      require(['prograde', 'retrograde', 'radial', 'normal'].includes(ev.direction), `${at}: invalid direction.`);
+    } else if (ev.type === 'ionDrive') {
       require(['isp_s', 'power_W', 'halfLife_days', 'wetMass_kg', 'dryMass_kg'].every(key => number(ev[key]) && ev[key] > 0)
         && ev.wetMass_kg > ev.dryMass_kg, `${at}: invalid ionDrive power, decay, Isp or masses.`);
       require(['conversionEfficiency', 'thrusterEfficiency'].every(key => number(ev[key]) && ev[key] > 0 && ev[key] <= 1), `${at}: invalid ionDrive efficiency.`);

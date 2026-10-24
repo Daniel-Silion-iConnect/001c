@@ -439,6 +439,43 @@ function impulse(state, dv) {
 
 // ---------- event handlers ----------
 
+/** Ideal magnetic reflection of a chirped pellet stream. Pellets are expelled,
+ * not accreted; relative speed and probe mass stay fixed. Integrate momentum
+ * as an equivalent impulse, without propagating the powered flight.
+ */
+function handlePelletStream(state, ev, entry) {
+  for (const key of ['pelletMass_kg', 'relativeVelocity_km_s', 'probeMass_kg']) {
+    if (!Number.isFinite(ev[key]) || ev[key] <= 0) {
+      throw new RangeError(`pelletStream ${key} must be finite and positive`);
+    }
+  }
+  if (!Number.isSafeInteger(ev.pelletCount) || ev.pelletCount <= 0) {
+    throw new RangeError('pelletStream pelletCount must be a positive safe integer');
+  }
+  if (!Number.isFinite(ev.momentumEfficiency) || ev.momentumEfficiency < 0 || ev.momentumEfficiency > 1) {
+    throw new RangeError('pelletStream momentumEfficiency must satisfy 0 ≤ efficiency ≤ 1');
+  }
+  if (!['prograde', 'retrograde', 'radial', 'normal', 'radialOut'].includes(ev.direction)) {
+    throw new Error('pelletStream requires a supported direction');
+  }
+  const totalPelletMass_kg = ev.pelletMass_kg * ev.pelletCount;
+  const dv = 2 * ev.momentumEfficiency * ev.relativeVelocity_km_s * totalPelletMass_kg / ev.probeMass_kg;
+  // Closed form of ideas_calc.py's midpoint sum at speeds 0..Δv, relative to
+  // the launcher. This excludes initial heliocentric motion and launch losses.
+  const launchEnergy_J = 0.5 * totalPelletMass_kg * 1e6 * (
+    ev.relativeVelocity_km_s ** 2 + ev.relativeVelocity_km_s * dv
+    + dv ** 2 * (1 / 3 - 1 / (12 * ev.pelletCount ** 2)));
+  if (![totalPelletMass_kg, dv, launchEnergy_J].every(Number.isFinite)) {
+    throw new RangeError('pelletStream parameters overflow the momentum calculation');
+  }
+  impulse(state, scale(directionVector(state, ev.direction), dv));
+  entry.pelletStream = {
+    totalPelletMass_kg, launchEnergy_J,
+    model: 'fixed relative speed and probe mass; reflected pellets; equivalent impulse at start; no finite-thrust propagation'
+  };
+  return dv;
+}
+
 /** First-order ion drive: integrate all future radioactive decay energy,
  * then apply the energy/propellant-limited rocket Δv at the current position.
  * The exhaust speed is constant; this does not propagate a powered trajectory.
@@ -793,6 +830,7 @@ function handleGravityAssist(state, ev, entry) {
 }
 
 const HANDLERS = {
+  pelletStream: handlePelletStream,
   ionDrive: handleIonDrive,
   laserCavityBoost: handleLaserCavityBoost,
   burn: handleBurn,
