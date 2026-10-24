@@ -27,7 +27,7 @@
       "type": "oberthBurn",
       "perihelion_AU": 0.1,
       "deltaV_km_s": 5.0,
-      "notes": "Deep solar burn — Oberth multiplier applied by engine"
+      "notes": "Deep solar burn — engine lowers perihelion to 0.1 AU at aphelion, then burns prograde at perihelion (Oberth)"
     },
     {
       "id": "tether-1",
