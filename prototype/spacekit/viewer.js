@@ -8,15 +8,16 @@ import { createNarrativePanel, loadNarratives } from './narrative-panel.js';
 const element = (id) => document.getElementById(id);
 
 async function start() {
-  const { path: scenario, id: scenarioId } = await mountPicker();
+  const { path: scenario, id: scenarioId, summary: shortDescription } = await mountPicker();
   const response = await fetch(scenario);
   if (!response.ok) throw new Error(`Cannot load ${scenario}: HTTP ${response.status}.`);
   let doc;
   try { doc = await response.json(); }
   catch { throw new Error(`Cannot parse ${scenario}: expected valid JSON.`); }
   const model = buildTrajectory(doc);
-  const narrativePanel = createNarrativePanel(doc, scenarioId);
-  element('status').after(narrativePanel.element);
+  const narrativePanel = createNarrativePanel(doc, scenarioId, shortDescription);
+  element('story-panel').append(narrativePanel.element);
+  element('story-details').append(narrativePanel.detailsElement);
   loadNarratives().then(narrativePanel.setData);
   // Draw and play each leg only from its event to the next, so the path reads as one trajectory.
   const arcs = buildContinuousArcs(model);
@@ -25,6 +26,7 @@ async function start() {
   element('title').textContent = title;
   document.title = `001c — ${title}`;
   element('status').textContent = `${doc.centralBody} · ${doc.frame} · ${doc.epoch}`;
+  element('load-status').hidden = true;
   element('summary').textContent = `${model.result.totalDeltaV_km_s.toFixed(3)} km/s total modeled Δv · ${model.result.log.filter(e => e.status === 'skipped').length} skipped events`;
   const labels = [];
   const eventButtons = [];
@@ -70,7 +72,10 @@ async function start() {
   };
   element('show-conics').addEventListener('change', event => view?.setShowConics(event.target.checked));
   const speedPanel = createSpeedPanel(model, select);
-  element('context').after(speedPanel.element, createTravelTimePanel(model.result.vInf_km_s));
+  const travelPanel = createTravelTimePanel(model.result.vInf_km_s);
+  element('target-progress').append(speedPanel.progressElement);
+  element('travel-panel').append(travelPanel);
+  element('analysis-panels').append(speedPanel.element, travelPanel.querySelector('#travel-card'));
   element('time').max = String(playback.duration_s);
   element('time').disabled = element('play').disabled = playback.duration_s === 0;
   element('time').addEventListener('input', event => {
@@ -122,6 +127,7 @@ async function start() {
     const li = document.createElement('li'); li.textContent = note; element('warnings').append(li);
   }
   element('hud').hidden = false;
+  element('advanced-hud').hidden = false;
   const fallback = (reason) => {
     view?.dispose();
     view = canvasView(element('plot'), model, labels, doc.centralBody, arcs);
@@ -154,7 +160,8 @@ async function start() {
 }
 
 start().catch(error => {
-  element('status').classList.add('error');
-  element('status').textContent = `${error.message} Serve this directory over HTTP (for example: npx serve prototype/spacekit).`;
+  element('load-status').hidden = false;
+  element('load-status').classList.add('error');
+  element('load-status').textContent = `${error.message} Serve this directory over HTTP (for example: npx serve prototype/spacekit).`;
   element('view-note').textContent = 'Scenario could not be loaded. Check the file path and trajectory fields.';
 });

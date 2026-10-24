@@ -25,15 +25,23 @@ for testing. Load another file with the form or
 `?scenario=other-trajectory.json` (paths resolve relative to the viewer). Absolute
 HTTP URLs also work if their server permits CORS.
 
-The expanded **Mission story** panel loads `narratives.json` and shows the project
-intro, the selected reference scenario's narrative, and an explanation of the
-current leg's event type. Leg 0 describes the initial orbit. Event buttons, chart
+The **Mission story** panel shows the reference scenario's short summary and an
+explanation of the current leg's event type from `narratives.json`. The project
+intro and full scenario story are under **Advanced**. Leg 0 describes the initial orbit. Event buttons, chart
 steps, the leg selector, and playback all update the explanation. The STP Oberth
 event also shows its solar-thermal propulsion context; skipped events are marked
 as intended maneuvers. Reference narratives use IDs from `scenarios/index.json`.
 Custom scenarios fall back to their description. Missing text or an unavailable
 narrative file shows a short fallback without blocking the trajectory viewer.
-All story text stays expanded and wraps at mobile widths.
+The short story stays visible and wraps at mobile widths.
+
+The scenario picker, selected-leg v∞ / percentage of c, gap to 300 km/s,
+playback controls, mission story, and Proxima / heliopause cruise highlights
+stay outside collapsible controls. **Advanced** starts closed and contains the
+JSON path / Load form, frame and epoch, current-leg selector, full-conics toggle,
+event list, engine notes, and detailed story. Load errors remain visible outside
+Advanced. Below 900px, the controls precede the plot in one scrolling page;
+desktop uses a scrolling sidebar beside the plot.
 
 Select a leg or numbered event to inspect its v∞ in km/s and percentage of c
 and move the white probe to that leg's preview start. The initial view selects
@@ -42,15 +50,15 @@ they have no escape asymptote; a parabolic escape displays zero. In 3D, drag to
 rotate and scroll to zoom. The canvas fallback uses an oblique projection in AU;
 it retains the same leg selector, event markers, probe, and HUD.
 
-The sidebar speed chart shows v∞ after every event, with the initial orbit as
+The collapsible speed chart shows v∞ after every event, with the initial orbit as
 step 0. Numbered steps match the event list; skipped steps and their incoming
 segments are grey. Hollow points denote bound orbits and are not connected as
 numeric zero speeds. Select a chart step to inspect its leg. The target readout
 tracks the selected leg's remaining gap to 300 km/s (approximately 0.1% c),
-percentage reached, and progress bar. Bound orbits contribute no escape-speed
+percentage reached, and progress bar, even with the chart closed. Bound orbits contribute no escape-speed
 progress; above-target percentages remain visible while the bar caps at 100%.
 
-The **Travel time** panel compares distance / final scenario v∞ with exactly
+The **Travel time** highlights and **All travel times** table compare distance / final scenario v∞ with exactly
 0.001c (299.792458 km/s) for Pluto, the heliopause, the Oort cloud edges, Proxima,
 Barnard's Star and Wolf 359. It stays tied to the loaded scenario's final result
 as you inspect other legs. Times use years (`0.6 yr`, `48 yr`), comma-grouped years
@@ -59,6 +67,9 @@ rounded to three significant figures from 1,000 (`6,470 yr`, `12,000 yr`), and
 show “—”. This cruise estimate ignores time spent
 leaving the Sun's gravity, acceleration, braking and stellar motion. See
 [milestone sources and assumptions](../../docs/analyses/travel-time-milestones.md).
+The speed chart and full travel table start expanded at widths ≥900px and closed
+below 900px. Their summary controls support mouse, touch, and keyboard toggling;
+resizing preserves the user's current choice.
 
 Press **Play** to preview all legs in sequence, **Pause** to stop, or scrub the
 **Preview time** slider (including with the keyboard) to seek while paused.

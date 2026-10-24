@@ -1,8 +1,8 @@
 :root { color-scheme: dark; font: 14px/1.5 system-ui, sans-serif; color: #e1eaf3; background: #080f1b; }
 * { box-sizing: border-box; }
 body { margin: 0; display: flex; height: 100dvh; }
-#info { width: 340px; flex-shrink: 0; padding: 24px; overflow-y: auto; border-right: 1px solid #263448; background: #0d1726; z-index: 1; }
-header { margin-bottom: 24px; }
+#info { width: 400px; flex-shrink: 0; padding: 24px; overflow-y: auto; border-right: 1px solid #263448; background: #0d1726; z-index: 1; }
+header { margin-bottom: 16px; }
 .eyebrow { font-size: 11px; letter-spacing: .14em; color: #6de2b4; }
 h1 { font-size: 23px; margin: 8px 0; line-height: 1.25; overflow-wrap: anywhere; }
 h2 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; }
@@ -10,31 +10,46 @@ label, dt { display: block; font-size: 12px; color: #9fb0c5; margin-bottom: 6px;
 input, select, button { font: inherit; color: inherit; border: 1px solid #3d5068; border-radius: 5px; background: #142235; padding: 7px 9px; }
 button, select { cursor: pointer; }
 button:hover, button[aria-pressed="true"] { background: #25435b; border-color: #6de2b4; }
-button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #6de2b4; outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid #6de2b4; outline-offset: 2px; }
 .load-row { display: flex; gap: 6px; }
 input { min-width: 0; width: 100%; }
 select { width: 100%; }
-#status { font-size: 12px; color: #9fb0c5; overflow-wrap: anywhere; }
-#status.error { color: #ffb5a5; }
+#status, #load-status { font-size: 12px; color: #9fb0c5; overflow-wrap: anywhere; }
+#load-status.error { color: #ffb5a5; }
 #picker-feasibility { padding: 10px; border-left: 3px solid #e8bc75; color: #e8cda5; background: #241f1a; font-size: 12px; overflow-wrap: anywhere; }
-#narrative { margin: 24px 0; padding: 16px 0; border-block: 1px solid #263448; overflow-wrap: anywhere; }
+#narrative { margin: 20px 0; padding: 16px 0; border-block: 1px solid #263448; overflow-wrap: anywhere; }
 #narrative h2 { margin: 0 0 12px; color: #6de2b4; font-size: 16px; }
 #narrative h3 { margin: 18px 0 6px; font-size: 13px; color: #acbed1; }
 #narrative p { margin: 0; font-size: 14px; line-height: 1.65; }
 .narrative-event { white-space: pre-line; }
-dl { margin: 22px 0 12px; }
-dd { font-size: 23px; margin: 0 0 12px; font-variant-numeric: tabular-nums; }
+.headline { margin: 20px 0 12px; }
+dd { font-size: 28px; margin: 0 0 10px; font-variant-numeric: tabular-nums; }
 #percent { font-size: 19px; color: #6de2b4; }
-#context, #summary, .muted, details { font-size: 12px; color: #9fb0c5; }
-#travel-time { margin: 24px 0; }
-#travel-time table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
-#travel-time caption { text-align: left; color: #9fb0c5; margin-bottom: 8px; }
-#travel-time th, #travel-time td { padding: 8px 3px; border-bottom: 1px solid #263448; text-align: right; vertical-align: top; }
-#travel-time th { font-weight: 500; }
-#travel-time th:first-child { width: 44%; padding-left: 0; text-align: left; overflow-wrap: anywhere; }
-#travel-time td { white-space: nowrap; font-variant-numeric: tabular-nums; }
-#travel-time thead { color: #9fb0c5; }
-#travel-time td:last-child { color: #6de2b4; }
+#target-progress h2 { margin-top: 12px; }
+#gap { font-size: 12px; font-variant-numeric: tabular-nums; margin: 6px 0; }
+progress { display: block; width: 100%; height: 10px; accent-color: #6de2b4; }
+#context, #summary, .muted { font-size: 12px; color: #9fb0c5; }
+.card { margin: 12px 0; border: 1px solid #263448; border-radius: 8px; overflow-wrap: anywhere; }
+.card > summary { padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.card > summary:hover { background: #142235; }
+.card[open] > summary { border-bottom: 1px solid #263448; }
+.card-content { padding: 12px; min-width: 0; }
+#advanced { margin-top: 16px; }
+#advanced p, #warnings { font-size: 12px; color: #9fb0c5; }
+#story-details p { line-height: 1.65; }
+#travel-time { margin: 20px 0; }
+.travel-highlights section { padding: 10px 12px; background: #142235; border-left: 2px solid #6de2b4; margin: 8px 0; }
+.travel-highlights h3 { margin: 0 0 4px; font-size: 13px; }
+.travel-highlights p { margin: 0; font-size: 12px; color: #9fb0c5; }
+.travel-highlights strong { color: #6de2b4; font-size: 16px; font-variant-numeric: tabular-nums; }
+#travel-card table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
+#travel-card caption { text-align: left; color: #9fb0c5; margin-bottom: 8px; }
+#travel-card th, #travel-card td { padding: 8px 3px; border-bottom: 1px solid #263448; text-align: right; vertical-align: top; }
+#travel-card th { font-weight: 500; }
+#travel-card th:first-child { width: 42%; padding-left: 0; text-align: left; overflow-wrap: anywhere; }
+#travel-card td { white-space: nowrap; font-variant-numeric: tabular-nums; }
+#travel-card thead { color: #9fb0c5; }
+#travel-card td:last-child { color: #6de2b4; }
 .milestone-distance { display: block; color: #9fb0c5; font-weight: 400; }
 .playback-controls { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: center; margin-top: 16px; }
 .playback-controls button { grid-row: span 2; }
@@ -64,9 +79,9 @@ canvas { display: block; width: 100%; height: 100%; }
 #markers button[aria-pressed="true"] { background: #25435b; box-shadow: 0 0 0 2px #080f1b; transform: translate(-50%, -50%) scale(1.12); z-index: 1; }
 #view-note { position: absolute; bottom: 12px; left: 18px; right: 18px; margin: 0; font-size: 12px; color: #acbed1; pointer-events: none; }
 noscript { padding: 24px; }
-@media (max-width: 680px) {
-  body { flex-direction: column-reverse; height: auto; min-height: 100dvh; }
-  #info { width: 100%; padding: 16px; overflow: visible; border-right: 0; border-top: 1px solid #263448; }
+@media (max-width: 899px) {
+  body { flex-direction: column; height: auto; min-height: 100dvh; }
+  #info { width: 100%; padding: 16px; overflow: visible; border-right: 0; border-bottom: 1px solid #263448; }
   #viewport { flex: none; height: 52dvh; min-height: 380px; }
   header { margin-bottom: 12px; }
 }

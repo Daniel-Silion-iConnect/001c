@@ -36,19 +36,22 @@ export function narrativeText(data, scenarioId, doc, index, status) {
   return { intro, scenario, eventTitle: `Leg ${index} · ${event.id || event.type}`, event: paragraphs.join('\n\n') };
 }
 
-export function createNarrativePanel(doc, scenarioId) {
+export function createNarrativePanel(doc, scenarioId, shortDescription) {
   const element = document.createElement('section');
   element.id = 'narrative';
   element.setAttribute('aria-labelledby', 'narrative-title');
   element.innerHTML = `
     <h2 id="narrative-title">Mission story</h2>
-    <p class="narrative-intro"></p>
-    <h3>This scenario</h3>
-    <p class="narrative-scenario"></p>
+    <p class="narrative-short"></p>
     <div class="narrative-current" aria-live="polite" aria-atomic="true">
       <h3 class="narrative-event-title"></h3>
       <p class="narrative-event"></p>
     </div>
+  `;
+  const detailsElement = document.createElement('section');
+  detailsElement.innerHTML = `
+    <h2>Project context</h2><p class="narrative-intro"></p>
+    <h2>Full scenario story</h2><p class="narrative-scenario"></p>
   `;
   let data = {}, index = 0, status;
   const render = () => {
@@ -57,13 +60,15 @@ export function createNarrativePanel(doc, scenarioId) {
       ['.narrative-intro', copy.intro], ['.narrative-scenario', copy.scenario],
       ['.narrative-event-title', copy.eventTitle], ['.narrative-event', copy.event]
     ]) {
-      const node = element.querySelector(selector);
+      const node = element.querySelector(selector) || detailsElement.querySelector(selector);
       if (node.textContent !== value) node.textContent = value;
     }
+    element.querySelector('.narrative-short').textContent = text(shortDescription) || copy.scenario;
   };
   render();
   return {
     element,
+    detailsElement,
     setData(value) { data = value; render(); },
     select(value, eventStatus) { index = value; status = eventStatus; render(); }
   };
