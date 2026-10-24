@@ -321,6 +321,22 @@
           "type": "number",
           "minimum": 0
         },
+        "tipSpeed_km_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "tetherLength_km": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "rotationPeriod_s": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "massRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
         "direction": {
           "enum": [
             "prograde",
@@ -328,12 +344,63 @@
             "radial",
             "normal"
           ]
+        },
+        "location": {
+          "anyOf": [
+            {
+              "enum": [
+                "current",
+                "perihelion",
+                "periapsis",
+                "aphelion",
+                "apoapsis"
+              ]
+            },
+            {
+              "type": "number"
+            }
+          ]
         }
       },
       "required": [
         "type",
-        "deltaV_km_s",
         "direction"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "deltaV_km_s": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "deltaV_km_s"
+          ]
+        },
+        {
+          "properties": {
+            "tipSpeed_km_s": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "tipSpeed_km_s"
+          ]
+        },
+        {
+          "properties": {
+            "tetherLength_km": {
+              "type": "number"
+            },
+            "rotationPeriod_s": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "tetherLength_km",
+            "rotationPeriod_s"
+          ]
+        }
       ],
       "additionalProperties": false
     },
@@ -391,18 +458,134 @@
           "type": "number",
           "exclusiveMinimum": 0
         },
+        "periapsisAltitude_km": {
+          "type": "number",
+          "minimum": 0
+        },
         "turnAngle_deg": {
           "type": "number",
           "exclusiveMinimum": 0,
           "exclusiveMaximum": 180
+        },
+        "deltaV_km_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "direction": {
+          "enum": [
+            "prograde",
+            "retrograde"
+          ]
+        },
+        "location": {
+          "enum": [
+            "encounter",
+            "current"
+          ]
+        },
+        "side": {
+          "enum": [
+            "trailing",
+            "leading"
+          ]
+        },
+        "bPlaneAngle_deg": {
+          "type": "number"
+        },
+        "mu_km3_s2": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "bodyRadius_km": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "bodyOrbit_AU": {
+          "type": "number",
+          "exclusiveMinimum": 0
         }
       },
       "required": [
         "type",
-        "body",
-        "periapsis_km",
-        "turnAngle_deg"
+        "body"
       ],
+      "anyOf": [
+        {
+          "properties": {
+            "periapsis_km": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "periapsis_km"
+          ]
+        },
+        {
+          "properties": {
+            "periapsisAltitude_km": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "periapsisAltitude_km"
+          ]
+        },
+        {
+          "properties": {
+            "turnAngle_deg": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "turnAngle_deg"
+          ]
+        }
+      ],
+      "not": {
+        "properties": {
+          "periapsis_km": {
+            "type": "number"
+          },
+          "periapsisAltitude_km": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "periapsis_km",
+          "periapsisAltitude_km"
+        ]
+      },
+      "dependentRequired": {
+        "direction": [
+          "deltaV_km_s"
+        ]
+      },
+      "dependentSchemas": {
+        "deltaV_km_s": {
+          "anyOf": [
+            {
+              "properties": {
+                "periapsis_km": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "periapsis_km"
+              ]
+            },
+            {
+              "properties": {
+                "periapsisAltitude_km": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "periapsisAltitude_km"
+              ]
+            }
+          ]
+        }
+      },
       "additionalProperties": false
     }
   }

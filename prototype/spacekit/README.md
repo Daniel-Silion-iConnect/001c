@@ -22,7 +22,9 @@ const out = applyTrajectory(schemaExampleJson, { ephemerisSamples: 64 });
 - Burns are applied to the state vector, then elements are recomputed.
 - Oberth: `oberthBurn` burns prograde at perihelion, so `v∞ = sqrt((v_p + Δv)² − v_esc²)` emerges directly. No multiplier.
 - Bound orbits report `bound: true`, `vInf_km_s: null`, `fractionOfC: null`.
-- `tetherRelease`, `gravityAssist`, `hitchhike` and unknown types are passed through with a warning in `log` (no state change yet).
+- `gravityAssist`: patched-conic flyby. v∞_in is taken relative to a circular, coplanar planet orbit, turned by δ = 2·asin(1/(1 + r_p v∞²/μ)), with an optional powered periapsis burn.
+- `tetherRelease`: rigid rotating tether. Δv = tip speed · M/(M + m), applied at `location` along `direction`.
+- See `docs/ORBITAL_NOTATION.md` for fields and assumptions. `hitchhike` and unknown types are passed through with a warning in `log`.
 
 Tests: `npm test` from the repo root (Node ≥ 18, no dependencies).
 
@@ -37,4 +39,4 @@ Tests: `npm test` from the repo root (Node ≥ 18, no dependencies).
 `trajectory-schema.json` is the draft 2020-12 contract for `schema-example.json`.
 See [orbital notation](../../docs/ORBITAL_NOTATION.md) for fields, units, and event semantics.
 From the repository root run `npm ci` and `npm test`, or validate another file with
-`node scripts/validate-schema.mjs path/to/trajectory.json`. The engine remains a physics placeholder.
+`node scripts/validate-schema.mjs path/to/trajectory.json`.

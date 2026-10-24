@@ -29,6 +29,24 @@ for (const r of ['AU', 'km']) check(`Cartesian state in ${r}`, true, value => {
 for (const direction of ['prograde', 'retrograde', 'radial', 'normal']) check(`direction ${direction}`, true, value => {
   value.events[0].direction = direction; value.events[0].deltaV_km_s = 0;
 });
+check('powered assist by altitude', true, value => {
+  delete value.events[4].periapsis_km;
+  Object.assign(value.events[4], { periapsisAltitude_km: 200000, deltaV_km_s: 1, direction: 'retrograde', side: 'leading' });
+});
+check('assist by turn angle with custom body', true, value => {
+  delete value.events[4].periapsis_km;
+  Object.assign(value.events[4], {
+    body: 'Planet9', turnAngle_deg: 60, mu_km3_s2: 1e6, bodyRadius_km: 2e4, bodyOrbit_AU: 400, location: 'current'
+  });
+});
+check('tether from tip speed and mass ratio at aphelion', true, value => {
+  delete value.events[2].deltaV_km_s;
+  Object.assign(value.events[2], { tipSpeed_km_s: 2, massRatio: 9, location: 'aphelion' });
+});
+check('tether from length and period at a true anomaly', true, value => {
+  delete value.events[2].deltaV_km_s;
+  Object.assign(value.events[2], { tetherLength_km: 100, rotationPeriod_s: 314.16, location: 40 });
+});
 for (const field of ['epoch', 'centralBody', 'frame', 'initialElements', 'events']) {
   check(`missing ${field}`, false, value => delete value[field]);
 }
@@ -61,7 +79,21 @@ for (const [name, change] of Object.entries({
   'missing assist body': value => { delete value.events[4].body; },
   'zero assist periapsis': value => { value.events[4].periapsis_km = 0; },
   'invalid assist angle': value => { value.events[4].turnAngle_deg = 180; },
-  'impulse on assist': value => { value.events[4].deltaV_km_s = 1; },
+  'radial impulse on assist': value => { Object.assign(value.events[4], { deltaV_km_s: 1, direction: 'radial' }); },
+  'assist direction without impulse': value => { value.events[4].direction = 'prograde'; },
+  'powered assist from turn angle only': value => {
+    delete value.events[4].periapsis_km;
+    Object.assign(value.events[4], { turnAngle_deg: 60, deltaV_km_s: 1 });
+  },
+  'assist without periapsis or angle': value => { delete value.events[4].periapsis_km; },
+  'two periapsis forms': value => { value.events[4].periapsisAltitude_km = 1000; },
+  'unknown assist side': value => { value.events[4].side = 'over'; },
+  'tether impulse and tip speed': value => { value.events[2].tipSpeed_km_s = 2; },
+  'tether without magnitude': value => { delete value.events[2].deltaV_km_s; },
+  'tether length without period': value => {
+    delete value.events[2].deltaV_km_s; value.events[2].tetherLength_km = 100;
+  },
+  'zero tether mass ratio': value => { value.events[2].massRatio = 0; },
   'negative target': value => { value.targetAsymptotic_km_s = -1; },
   'numeric string': value => { value.events[0].deltaV_km_s = '3'; }
 })) check(name, false, change);

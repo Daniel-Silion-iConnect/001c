@@ -1,6 +1,7 @@
 // Unit tests for the patched-conic engine. Run with `npm test`.
 // Reference numbers are hand-checked in the comments (μ☉ = 1.32712440018e11
-// km³/s², 1 AU = 1.495978707e8 km, μ⊕ = 398600.4418 km³/s²).
+// km³/s², 1 AU = 1.495978707e8 km, μ⊕ = 398600.4418 km³/s²,
+// μ♃ = 1.26686534e8 km³/s², R♃ = 71492 km, a♃ = 5.202887 AU).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,8 +15,11 @@ import {
   circularSpeed,
   elementsToState,
   escapeSpeed,
+  flybyTurnAngle,
   oberthVInf,
+  poweredFlyby,
   stateToElements,
+  tetherDeltaV,
   vInfinity,
   visViva
 } from './engine.js';
@@ -194,14 +198,12 @@ test('oberthBurn with perihelion_AU retargets perihelion at aphelion and counts 
 
 test('unsupported event types pass through with a warning and no state change', () => {
   const out = applyEvents(circular1AU, [
-    { id: 't1', type: 'tetherRelease', deltaV_km_s: 2.5 },
-    { id: 'ga', type: 'gravityAssist' },
+    { id: 'h', type: 'hitchhike', deltaV_km_s: 2.5 },
     { id: 'x', type: 'warpDrive' }
   ]);
-  assert.deepEqual(out.log.map((e) => e.status), ['skipped', 'skipped', 'skipped']);
+  assert.deepEqual(out.log.map((e) => e.status), ['skipped', 'skipped']);
   assert.match(out.log[0].warnings[0], /not modelled yet/);
-  assert.match(out.log[1].warnings[0], /not modelled yet/);
-  assert.match(out.log[2].warnings[0], /unknown event type/);
+  assert.match(out.log[1].warnings[0], /unknown event type/);
   near(out.finalElements.a, 1, 1e-12);
   assert.equal(out.totalDeltaV_km_s, 0);
 });
@@ -220,7 +222,10 @@ test('schema-example.json runs end to end and samples an ephemeris', () => {
   const doc = JSON.parse(readFileSync(new URL('./schema-example.json', import.meta.url), 'utf8'));
   const out = applyTrajectory(doc, { ephemerisSamples: 16 });
   assert.equal(out.log.length, doc.events.length);
-  assert.deepEqual(out.log.map((e) => e.status), ['applied', 'applied', 'skipped', 'skipped', 'skipped']);
+  assert.deepEqual(out.log.map((e) => e.status), ['applied', 'applied', 'applied', 'skipped', 'applied']);
+  near(out.log[2].tether.payloadDeltaV_km_s, 2.5, 1e-12);
+  assert.deepEqual(out.log[4].warnings, [], 'Jupiter assist is self-consistent');
+  near(out.log[4].flyby.periapsis_km, 100000, 0);
   assert.ok(out.log[1].perihelionAdjust, 'Oberth event retargets perihelion to 0.1 AU');
   near(out.log[1].oberth.burnRadius_AU, 0.1, 1e-9);
   assert.equal(out.ephemerisPoints.length, 16);
@@ -247,4 +252,213 @@ test('input validation', () => {
   assert.throws(() => applyEvents({ a: 1, e: 1 }, []), /parabolic elements need "rp"/);
   assert.throws(() => applyEvents({ type: 'cartesian', r: [1, 0, 0] }, []), /unsupported element type/);
   assert.throws(() => applyEvents(circular1AU, [], { centralBody: 'Vulcan' }), /unknown central body/);
+});
+
+// ---------- gravityAssist ----------
+
+test('flyby turn angle δ = 2·asin(1/(1 + r_p v∞²/μ)): exact cases and Jupiter at 5 R♃', () => {
+  const D = 180 / Math.PI;
+  // r_p = μ/v∞² → e = 2 → δ = 2·asin(1/2) = 60°.
+  near(flybyTurnAngle(MU.Jupiter, MU.Jupiter / 100, 10) * D, 60, 1e-12);
+  // r_p = (√2 − 1)μ/v∞² → e = √2 → δ = 2·45° = 90°.
+  near(flybyTurnAngle(MU.Jupiter, ((Math.SQRT2 - 1) * MU.Jupiter) / 100, 10) * D, 90, 1e-12);
+  // v∞ = 10 km/s, r_p = 5·71492 = 357460 km:
+  // e = 1 + 357460·100 / 1.26686534e8 = 1.28216, 1/e = 0.77994, asin = 51.254°, δ ≈ 102.51°
+  near(flybyTurnAngle(MU.Jupiter, 5 * 71492, 10) * D, 102.51, 0.01);
+});
+
+test('powered flyby: periapsis burn raises v∞ and the turn angle splits across both legs', () => {
+  const rp = MU.Jupiter / 100; // e_in = 2 at v∞ = 10 km/s
+  const free = poweredFlyby(MU.Jupiter, rp, 10, 0);
+  near(free.vInfOut, 10, 1e-12);
+  near(free.turnAngle, flybyTurnAngle(MU.Jupiter, rp, 10), 1e-12);
+  // v_esc² at r_p = 2μ/r_p = 200, v_p,in = sqrt(100 + 200) = 17.3205
+  // +1 km/s → 18.3205, v∞,out = sqrt(335.641 − 200) = 11.6465
+  // e_out = 1 + 135.641/100 = 2.35641, δ = 30° + asin(0.42437) = 30° + 25.11° = 55.11°
+  const pf = poweredFlyby(MU.Jupiter, rp, 10, 1);
+  near(pf.vpIn, 17.3205, 1e-4);
+  near(pf.vInfOut, 11.6465, 1e-4);
+  near(pf.eOut, 2.35641, 1e-5);
+  near((pf.turnAngle * 180) / Math.PI, 55.11, 0.01);
+  // A −10 km/s burn drops v_p to 7.32 < v_esc 14.14: captured.
+  assert.equal(poweredFlyby(MU.Jupiter, rp, 10, -10), null);
+});
+
+// Hohmann transfer 1 AU → a♃: v_p = 38.5774, v_a = 7.4146 km/s; Jupiter's circular
+// speed is 13.0578 km/s, so at aphelion v∞,in = 13.0578 − 7.4146 = 5.6432 km/s (tangential).
+const aHohmann = ((1 + 5.202887) / 2) * AU_KM;
+const hohmannDv = visViva(MU.Sun, AU_KM, aHohmann) - circularSpeed(MU.Sun, AU_KM);
+const vInfJ = circularSpeed(MU.Sun, 5.202887 * AU_KM) - visViva(MU.Sun, 5.202887 * AU_KM, aHohmann);
+
+test('gravityAssist: Hohmann arrival at Jupiter, 60° turn, heliocentric Δv = v∞', () => {
+  near(hohmannDv, 8.7927, 1e-4);
+  near(vInfJ, 5.6432, 1e-4);
+  const rp = MU.Jupiter / vInfJ ** 2; // e = 2 → δ = 60°, r_p ≈ 3.98e6 km ≈ 55.6 R♃
+  const out = applyEvents(circular1AU, [
+    { type: 'burn', deltaV_km_s: hohmannDv },
+    { id: 'jga', type: 'gravityAssist', body: 'Jupiter', periapsisAltitude_km: rp - 71492 }
+  ]);
+  const fb = out.log[1].flyby;
+  assert.equal(out.log[1].status, 'applied');
+  near(fb.encounterRadius_AU, 5.202887, 1e-9, 'moved to aphelion = Jupiter orbit');
+  near(fb.periapsis_km, rp, 1e-6);
+  near(fb.vInfIn_km_s, 5.6432, 1e-4);
+  near(fb.vInfOut_km_s, fb.vInfIn_km_s, 1e-12);
+  near(fb.eccentricityIn, 2, 1e-9);
+  near(fb.turnAngle_deg, 60, 1e-6);
+  // Unpowered: |Δv_helio| = 2 v∞ sin(δ/2) = v∞ for δ = 60°.
+  near(fb.heliocentricDeltaV_km_s, 5.6432, 1e-4);
+  // Law of cosines: sqrt(13.0578² + 5.6432² − 2·13.0578·5.6432·cos 60°) = 11.3430 km/s
+  near(fb.heliocentricSpeedAfter_km_s, 11.3430, 1e-4);
+  // v∞ relative to the planet is conserved by an unpowered flyby.
+  const vRel = Math.hypot(...out.finalState.v_km_s.map((x, j) => x - fb.bodyVelocity_km_s[j]));
+  near(vRel, vInfJ, 1e-9);
+  // Gravity is free: only the departure burn counts.
+  near(out.totalDeltaV_km_s, hohmannDv, 1e-12);
+});
+
+test('gravityAssist: powered flyby adds periapsis Δv to the budget', () => {
+  const rp = MU.Jupiter / vInfJ ** 2;
+  const out = applyEvents(circular1AU, [
+    { type: 'burn', deltaV_km_s: hohmannDv },
+    { type: 'gravityAssist', body: 'Jupiter', periapsis_km: rp, deltaV_km_s: 1, direction: 'prograde' }
+  ]);
+  const fb = out.log[1].flyby;
+  // v_esc² = 2v∞² at this r_p, so v_p,in = √3·5.6432 = 9.7743;
+  // +1 → v∞,out = sqrt(10.7743² − 2·5.6432²) = sqrt(116.085 − 63.691) = 7.238
+  near(fb.periapsisSpeedIn_km_s, 9.7743, 1e-4);
+  near(fb.vInfOut_km_s, 7.238, 1e-3);
+  near(fb.vInfOut_km_s, poweredFlyby(MU.Jupiter, rp, vInfJ, 1).vInfOut, 1e-9);
+  near(out.totalDeltaV_km_s, hohmannDv + 1, 1e-12);
+});
+
+test('gravityAssist: trailing pass gains heliocentric energy, leading pass loses it', () => {
+  // Ellipse 1 → 6 AU crosses Jupiter's orbit at ν ≠ 180°, so v∞,in has a radial part.
+  // There v∞,in = 7.8937 km/s; r_p = 5e6 km gives e = 1 + 5e6·62.31/1.26687e8 = 3.4593,
+  // δ = 2·asin(0.28908) = 33.61°, small enough that the leading turn moves v∞ away from v♃.
+  // (With δ ≳ 100° a "leading" turn can swing past anti-v♃ and still gain energy.)
+  const ellipse = { a: 3.5, e: 5 / 7, units: { a: 'AU', angles: 'deg' } };
+  const ga = (extra) => applyEvents(ellipse, [
+    { type: 'gravityAssist', body: 'Jupiter', periapsis_km: 5e6, ...extra }
+  ]);
+  const trailing = ga({});
+  const leading = ga({ side: 'leading' });
+  const before = trailing.log[0].flyby.heliocentricSpeedBefore_km_s;
+  near(trailing.log[0].flyby.encounterRadius_AU, 5.202887, 1e-9);
+  near(trailing.log[0].flyby.turnAngle_deg, 33.6, 0.01);
+  assert.ok(trailing.log[0].after.speed_km_s > before, 'trailing gains');
+  assert.ok(leading.log[0].after.speed_km_s < before, 'leading loses');
+  near(trailing.log[0].flyby.turnAngle_deg, leading.log[0].flyby.turnAngle_deg, 1e-12);
+  assert.ok(trailing.finalElements.a > 3.5);
+  assert.ok(leading.finalElements.a < 3.5);
+  // bPlaneAngle 90° turns v∞ out of the ecliptic.
+  const tilted = ga({ bPlaneAngle_deg: 90 });
+  assert.ok(tilted.finalElements.i > 1, `i = ${tilted.finalElements.i}°`);
+});
+
+test('gravityAssist: unreachable planet or capture is skipped with no state change', () => {
+  const miss = applyEvents(circular1AU, [
+    { type: 'gravityAssist', body: 'Jupiter', periapsisAltitude_km: 1e5 }
+  ]);
+  assert.equal(miss.log[0].status, 'skipped');
+  assert.match(miss.log[0].warnings[0], /does not reach/);
+  near(miss.finalElements.a, 1, 1e-12);
+
+  const capture = applyEvents(circular1AU, [
+    { type: 'burn', deltaV_km_s: hohmannDv },
+    { type: 'gravityAssist', body: 'Jupiter', periapsisAltitude_km: 1e5, deltaV_km_s: 20, direction: 'retrograde' }
+  ]);
+  assert.equal(capture.log[1].status, 'skipped');
+  assert.match(capture.log[1].warnings[0], /captures/);
+  near(capture.finalElements.a, (1 + 5.202887) / 2, 1e-9);
+  near(capture.totalDeltaV_km_s, hohmannDv, 1e-12);
+
+  assert.throws(
+    () => applyEvents(circular1AU, [{ type: 'gravityAssist', body: 'Vulcan', periapsis_km: 1 }]),
+    /unknown flyby body/
+  );
+  assert.throws(
+    () => applyEvents(circular1AU, [{ type: 'gravityAssist', body: 'Jupiter' }]),
+    /needs periapsis_km, periapsisAltitude_km or turnAngle_deg/
+  );
+});
+
+test('gravityAssist: turnAngle_deg alone solves r_p; with periapsis it is a consistency check', () => {
+  // δ = 60° → r_p = μ/v∞² · (1/sin 30° − 1) = μ/v∞² = 1.26686534e8 / 5.6432² ≈ 3.978e6 km
+  const out = applyEvents(circular1AU, [
+    { type: 'burn', deltaV_km_s: hohmannDv },
+    { type: 'gravityAssist', body: 'Jupiter', turnAngle_deg: 60 }
+  ]);
+  near(out.log[1].flyby.periapsis_km / 3.978e6, 1, 1e-3);
+  near(out.log[1].flyby.periapsis_km, MU.Jupiter / vInfJ ** 2, 1e-3);
+  near(out.log[1].flyby.turnAngle_deg, 60, 1e-9);
+
+  const mismatch = applyEvents(circular1AU, [
+    { type: 'burn', deltaV_km_s: hohmannDv },
+    { type: 'gravityAssist', body: 'Jupiter', periapsis_km: MU.Jupiter / vInfJ ** 2, turnAngle_deg: 30 }
+  ]);
+  assert.match(mismatch.log[1].warnings[0], /does not match 60\.0000°/);
+  near(mismatch.log[1].flyby.turnAngle_deg, 60, 1e-9);
+});
+
+// ---------- tetherRelease ----------
+
+test('tether Δv: rigid tether, momentum split by mass ratio', () => {
+  near(tetherDeltaV(2), 2, 0, 'infinitely heavy facility');
+  // M/m = 9: Δv_payload = 2·9/10 = 1.8 km/s (facility recoils −1.8/9 = −0.2 km/s)
+  near(tetherDeltaV(2, 9), 1.8, 1e-12);
+  assert.throws(() => tetherDeltaV(2, 0), RangeError);
+});
+
+test('tetherRelease: prograde release from 1 AU circle equals a 1.8 km/s burn', () => {
+  const out = applyEvents(circular1AU, [
+    { id: 't', type: 'tetherRelease', tipSpeed_km_s: 2, massRatio: 9 }
+  ]);
+  const t = out.log[0].tether;
+  near(t.payloadDeltaV_km_s, 1.8, 1e-12);
+  near(t.facilityRecoil_km_s, -0.2, 1e-12);
+  // 29.7847 + 1.8 = 31.5847 km/s; a = 1 / (2 − (31.5847/29.7847)²) = 1 / (2 − 1.12452) = 1.1422 AU
+  near(out.log[0].after.speed_km_s, 31.5847, 1e-4);
+  near(out.finalElements.a, 1.1422, 1e-4);
+  near(out.totalDeltaV_km_s, 1.8, 1e-12);
+  const burn = applyEvents(circular1AU, [{ type: 'burn', deltaV_km_s: 1.8 }]);
+  near(out.finalElements.a, burn.finalElements.a, 1e-12);
+});
+
+test('tetherRelease: tip speed from length and period, release point and direction', () => {
+  // L = 100 km, T = 100π s → tip = 2π·100/(100π) = 2 km/s;
+  // heavy facility → accel = v²/L = 0.04 km/s² = 40 m/s² = 4.079 g
+  const ellipse = { a: 1.262, e: 0.2076, nu: 40, units: { a: 'AU', angles: 'deg' } };
+  const out = applyEvents(ellipse, [
+    {
+      type: 'tetherRelease',
+      tetherLength_km: 100,
+      rotationPeriod_s: 100 * Math.PI,
+      location: 'aphelion',
+      direction: 'retrograde'
+    }
+  ]);
+  const t = out.log[0].tether;
+  near(t.tipSpeed_km_s, 2, 1e-12);
+  near(t.payloadAcceleration_g, 4.079, 1e-3);
+  assert.equal(t.direction, 'retrograde');
+  const burn = applyEvents(ellipse, [
+    { type: 'burn', location: 'aphelion', deltaV_km_s: 2, direction: 'retrograde' }
+  ]);
+  near(out.finalElements.rp, burn.finalElements.rp, 1e-12);
+  assert.ok(out.finalElements.rp < 1, 'retrograde release at aphelion lowers perihelion');
+});
+
+test('tetherRelease: direct deltaV_km_s form and input validation', () => {
+  const out = applyEvents(circular1AU, [{ type: 'tetherRelease', deltaV_km_s: 2.5, massRatio: 50 }]);
+  near(out.log[0].tether.payloadDeltaV_km_s, 2.5, 1e-12);
+  near(out.log[0].tether.facilityRecoil_km_s, -0.05, 1e-12);
+  const both = applyEvents(circular1AU, [{ type: 'tetherRelease', tipSpeed_km_s: 1, deltaV_km_s: 5 }]);
+  near(both.totalDeltaV_km_s, 1, 1e-12);
+  assert.match(both.log[0].warnings[0], /ignoring deltaV_km_s/);
+  assert.throws(() => applyEvents(circular1AU, [{ type: 'tetherRelease' }]), /tetherRelease needs/);
+  assert.throws(
+    () => applyEvents(circular1AU, [{ type: 'tetherRelease', tipSpeed_km_s: 1, massRatio: -1 }]),
+    RangeError
+  );
 });

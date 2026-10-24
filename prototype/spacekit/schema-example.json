@@ -50,8 +50,7 @@
       "id": "jupiter-assist",
       "type": "gravityAssist",
       "body": "Jupiter",
-      "periapsis_km": 100000,
-      "turnAngle_deg": 30
+      "periapsis_km": 100000
     }
   ],
   "targetAsymptotic_km_s": 300
