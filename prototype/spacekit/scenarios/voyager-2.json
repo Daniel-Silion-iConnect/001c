@@ -1,0 +1,55 @@
+{
+  "name": "Voyager 2 (baseline): Jupiter → Saturn → Uranus → Neptune",
+  "description": "Historical launch and flyby sequence; illustrative patched-conic baseline calibrated to the final heliocentric escape speed, not a reconstructed ephemeris. Dates in event ids/notes are historical annotations, not engine scheduling. See docs/analyses/voyager-baselines.md.",
+  "epoch": "1977-08-20T14:29:44Z",
+  "centralBody": "Sun",
+  "frame": "ECLIPJ2000",
+  "targetAsymptotic_km_s": 15.2,
+  "initialElements": {
+    "type": "keplerian",
+    "a": 5,
+    "e": 0.8,
+    "i": 0,
+    "raan": 0,
+    "argp": 0,
+    "nu": 0,
+    "units": {
+      "a": "AU",
+      "angles": "deg"
+    }
+  },
+  "events": [
+    {
+      "type": "gravityAssist",
+      "id": "jupiter-1979-07-09",
+      "body": "Jupiter",
+      "periapsis_km": 645000,
+      "bPlaneAngle_deg": 0,
+      "notes": "Historical Jupiter flyby: 1979-07-09. Nominal model periapsis; B-plane orientation is illustrative. No powered burn."
+    },
+    {
+      "type": "gravityAssist",
+      "id": "saturn-1981-08-25",
+      "body": "Saturn",
+      "periapsis_km": 161000,
+      "bPlaneAngle_deg": 90,
+      "notes": "Historical Saturn flyby: 1981-08-25. Nominal model periapsis; B-plane orientation is illustrative. No powered burn."
+    },
+    {
+      "type": "gravityAssist",
+      "id": "uranus-1986-01-24",
+      "body": "Uranus",
+      "periapsis_km": 107000,
+      "bPlaneAngle_deg": 0,
+      "notes": "Historical Uranus flyby: 1986-01-24. Nominal model periapsis; B-plane orientation is illustrative. No powered burn."
+    },
+    {
+      "type": "gravityAssist",
+      "id": "neptune-1989-08-25",
+      "body": "Neptune",
+      "periapsis_km": 29564,
+      "bPlaneAngle_deg": 86.535494,
+      "notes": "Historical Neptune flyby: 1989-08-25. Nominal model periapsis; B-plane orientation is illustrative. No powered burn."
+    }
+  ]
+}

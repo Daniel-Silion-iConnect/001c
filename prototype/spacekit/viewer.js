@@ -2,12 +2,12 @@ import { buildTrajectory, buildContinuousArcs, buildContinuousPlayback, playback
 import { canvasView, threeView, legColor } from './renderers.js';
 import { createSpeedPanel } from './speed-panel.js';
 import { createTravelTimePanel } from './travel-time-panel.js';
+import { mountPicker } from './scenario-picker.js';
 
 const element = (id) => document.getElementById(id);
-const scenario = new URLSearchParams(location.search).get('scenario') || 'schema-example.json';
-element('scenario').value = scenario;
 
 async function start() {
+  const scenario = await mountPicker();
   const response = await fetch(scenario);
   if (!response.ok) throw new Error(`Cannot load ${scenario}: HTTP ${response.status}.`);
   let doc;
