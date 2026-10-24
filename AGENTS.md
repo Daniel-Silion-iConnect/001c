@@ -1,29 +1,22 @@
 # AGENTS.md
 
-This repository is designed for multi-agent collaboration. Any agent (Grok, Claude, Gemini, Codex, Copilot, etc.) may contribute.
+## 001c Bot
+A dedicated Grok Bot named **001c** coordinates this project. It owns backlog triage, multi-agent task suggestion, and status tracking.
 
-## Roles
-- **Trajectory Analyst**: Model sequences, calculate asymptotic speeds, document assumptions.
-- **Mass Budget Owner**: Track probe, heat shield, stages, and infrastructure mass.
-- **Infrastructure Designer**: Tether systems, refueling architecture, hitchhike concepts.
-- **Prototype Engineer**: Interactive visualizers, simple simulators.
-- **Reviewer**: Critique concepts for feasibility, physics errors, and risk.
+## How Agents Contribute
+1. Pick or get assigned a GitHub issue.
+2. Work in a dedicated worktree or branch.
+3. Follow the orbital notation schema in `docs/ORBITAL_NOTATION.md`.
+4. Open a PR with a clear description linking the issue.
+5. Human (or bot-assisted) review before merge.
 
-## Contribution Rules
-1. Read GOAL.md, SPECS.md, and DESIGN.md first.
-2. Create a branch or PR for significant changes. Prefer atomic, well-documented commits.
-3. When adding a new concept, include:
-   - Physics basis and key equations
-   - Realistic performance ceiling for 1 kg probe
-   - Major risks and open questions
-   - References or prior studies
-4. Update docs/TRAJECTORY_IDEAS.md when introducing a new method.
-5. Keep tone technical and evidence-based. Cite sources where possible.
+## Preferred Tools
+- Claude Code / Claude CLI when installable on the coordinating machine.
+- Other coding agents (Codex, Gemini, etc.) via CLI or prompt handoff.
+- All changes go through GitHub PRs.
 
-## Preferred Tools by Agent Type
-- Claude / Codex: Trajectory code, mass models, detailed technical writing.
-- Gemini: Broad research synthesis, literature review.
-- Grok: Rapid ideation, multi-agent coordination, prototype scaffolding.
-- Human: Final architecture decisions and prioritization.
-
-See AGENT_COLLABORATION.md for the full protocol.
+## Key Docs
+- `docs/DECISIONS.md` — stack and notation decisions
+- `docs/ORBITAL_NOTATION.md` — Keplerian / Cartesian schema
+- `docs/AGENT_WORKFLOW.md` — full coordination model
+- `prototype/spacekit/` — current visualization skeleton
