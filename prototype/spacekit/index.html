@@ -15,6 +15,9 @@
 <body>
   <aside id="info" aria-label="Trajectory controls">
     <header><span class="eyebrow">001c / MISSION DESIGN</span><h1 id="title">Trajectory viewer</h1></header>
+    <label for="picker">Reference scenario</label>
+    <select id="picker" aria-describedby="picker-note"></select>
+    <p id="picker-note" class="muted">Concepts A/B/C from docs/analyses/reference-scenarios.md, or load any JSON path below.</p>
     <form method="get">
       <label for="scenario">Scenario JSON</label>
       <div class="load-row"><input id="scenario" name="scenario" value="schema-example.json" required><button>Load</button></div>
@@ -34,5 +37,6 @@
   <main id="viewport" aria-label="Trajectory visualization"><div id="plot"></div><div id="markers"></div><p id="view-note"></p></main>
   <noscript>This viewer requires JavaScript. Serve this directory over HTTP to load scenario JSON.</noscript>
   <script type="module" src="./viewer.js"></script>
+  <script type="module" src="./scenario-picker.js"></script>
 </body>
 </html>

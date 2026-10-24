@@ -1,0 +1,151 @@
+{
+  "name": "Concept C (baseline): Tether network + STP Oberth",
+  "description": "docs/analyses/reference-scenarios.md §4, concept-c-baseline. Starts inbound at 1 AU on a solar-plunge hyperbola with v_inf,in = 45.0 km/s and r_p = 3.5 R_sun (the speculative inbound tether network and JGA that produce it are not modelled). 24.0 km/s STP burn gives v_inf,SOM = 136.36 km/s; 15 speculative CNT tethers x 4.0 km/s (+60.0 km/s) at 10–30 AU, no hitchhike in the baseline. Doc reference: 196.36 km/s far-field linear (6.55e-4 c); 255.07 km/s if the tethers acted at perihelion.",
+  "epoch": "2026-10-24T00:00:00Z",
+  "centralBody": "Sun",
+  "frame": "ECLIPJ2000",
+  "initialElements": {
+    "type": "keplerian",
+    "a": -0.43808783580698585,
+    "e": 1.0371538173010098,
+    "i": 0,
+    "raan": 0,
+    "argp": 0,
+    "nu": -158.781493,
+    "units": {
+      "a": "AU",
+      "angles": "deg"
+    }
+  },
+  "events": [
+    {
+      "id": "stp-oberth",
+      "type": "oberthBurn",
+      "deltaV_km_s": 24,
+      "direction": "prograde",
+      "perihelion_AU": 0.016276635413367553,
+      "notes": "Transpiration-cooled H2 solar-thermal burn (Isp 1000 s) at 3.5 R_sun; v_p- 333.21 -> v_p+ 357.21 km/s, v_inf,SOM 136.36 km/s."
+    },
+    {
+      "id": "tether-1",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 137.968098,
+      "notes": "CNT rotovator station 1/15 at ~10 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-2",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 136.348112,
+      "notes": "CNT rotovator station 2/15 at ~11.43 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-3",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 134.762909,
+      "notes": "CNT rotovator station 3/15 at ~12.86 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-4",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 133.217194,
+      "notes": "CNT rotovator station 4/15 at ~14.29 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-5",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 131.714346,
+      "notes": "CNT rotovator station 5/15 at ~15.71 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-6",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 130.256753,
+      "notes": "CNT rotovator station 6/15 at ~17.14 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-7",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 128.846025,
+      "notes": "CNT rotovator station 7/15 at ~18.57 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-8",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 127.483135,
+      "notes": "CNT rotovator station 8/15 at ~20 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-9",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 126.168532,
+      "notes": "CNT rotovator station 9/15 at ~21.43 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-10",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 124.902227,
+      "notes": "CNT rotovator station 10/15 at ~22.86 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-11",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 123.683869,
+      "notes": "CNT rotovator station 11/15 at ~24.29 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-12",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 122.512808,
+      "notes": "CNT rotovator station 12/15 at ~25.71 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-13",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 121.388154,
+      "notes": "CNT rotovator station 13/15 at ~27.14 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-14",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 120.308826,
+      "notes": "CNT rotovator station 14/15 at ~28.57 AU (far-field, Regime 5a)."
+    },
+    {
+      "id": "tether-15",
+      "type": "tetherRelease",
+      "deltaV_km_s": 4,
+      "direction": "prograde",
+      "location": 119.273592,
+      "notes": "CNT rotovator station 15/15 at ~30 AU (far-field, Regime 5a)."
+    }
+  ],
+  "targetAsymptotic_km_s": 196.36
+}
