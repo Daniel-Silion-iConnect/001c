@@ -1,0 +1,40 @@
+:root { color-scheme: dark; font: 14px/1.5 system-ui, sans-serif; color: #e1eaf3; background: #080f1b; }
+* { box-sizing: border-box; }
+body { margin: 0; display: flex; height: 100dvh; }
+#info { width: 340px; flex-shrink: 0; padding: 24px; overflow-y: auto; border-right: 1px solid #263448; background: #0d1726; z-index: 1; }
+header { margin-bottom: 24px; }
+.eyebrow { font-size: 11px; letter-spacing: .14em; color: #6de2b4; }
+h1 { font-size: 23px; margin: 8px 0; line-height: 1.25; overflow-wrap: anywhere; }
+h2 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; }
+label, dt { display: block; font-size: 12px; color: #9fb0c5; margin-bottom: 6px; }
+input, select, button { font: inherit; color: inherit; border: 1px solid #3d5068; border-radius: 5px; background: #142235; padding: 7px 9px; }
+button, select { cursor: pointer; }
+button:hover, button[aria-pressed="true"] { background: #25435b; border-color: #6de2b4; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #6de2b4; outline-offset: 2px; }
+.load-row { display: flex; gap: 6px; }
+input { min-width: 0; width: 100%; }
+select { width: 100%; }
+#status { font-size: 12px; color: #9fb0c5; overflow-wrap: anywhere; }
+#status.error { color: #ffb5a5; }
+dl { margin: 22px 0 12px; }
+dd { font-size: 23px; margin: 0 0 12px; font-variant-numeric: tabular-nums; }
+#percent { font-size: 19px; color: #6de2b4; }
+#context, #summary, .muted, details { font-size: 12px; color: #9fb0c5; }
+#events { padding: 0; list-style: none; }
+#events li { margin: 6px 0; }
+#events button { width: 100%; text-align: left; font-size: 12px; overflow-wrap: anywhere; border-left: 3px solid var(--leg-color); }
+#warnings { padding-left: 18px; }
+#warnings li { margin-bottom: 8px; }
+#viewport { position: relative; flex: 1; min-width: 0; overflow: hidden; }
+#plot, #markers { position: absolute; inset: 0; }
+canvas { display: block; width: 100%; height: 100%; }
+#markers { pointer-events: none; }
+#markers button { position: absolute; pointer-events: auto; padding: 1px 6px; font-size: 11px; transform: translate(-50%, -50%); border-radius: 50%; }
+#view-note { position: absolute; bottom: 12px; left: 18px; right: 18px; margin: 0; font-size: 12px; color: #acbed1; pointer-events: none; }
+noscript { padding: 24px; }
+@media (max-width: 680px) {
+  body { flex-direction: column-reverse; }
+  #info { width: 100%; height: 48%; padding: 16px; border-right: 0; border-top: 1px solid #263448; }
+  #viewport { flex: 1; min-height: 180px; }
+  header { margin-bottom: 12px; }
+}
