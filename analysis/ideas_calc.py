@@ -122,12 +122,28 @@ for ve in (85e3, ve_agent_formula, ve_alpha):
     print(f"   v_e={kms(ve):5.1f} -> dv={kms(dv):6.2f} v_inf={kms(v):6.1f} km/s")
 
 print("\n== Claude: photon-recycling cavity catapult ==")
+def laser_cavity_boost(power_MW, duration_s, recycling_factor, probe_mass_kg):
+    """Ideal constant-power shot; SI internally, matching the Concept D engine.
+
+    Uses this analysis's rounded c, AU and solar mu. Neglects movement during
+    the shot, optical losses and Earth/Moon escape, as in the original check.
+    """
+    force = 2 * power_MW * 1e6 * recycling_factor / c
+    acceleration = force / probe_mass_kg
+    delta_v = acceleration * duration_s
+    v_earth = math.sqrt(MU_SUN / AU)
+    return {"deltaV_km_s": kms(delta_v),
+            "acceleration_m_s2": acceleration,
+            "inputEnergy_J": power_MW * 1e6 * duration_s,
+            "vInf_km_s": kms(math.sqrt((delta_v + v_earth)**2 - 2 * MU_SUN / AU))}
+
 m, L, vL, N = 2.0, 1e8, 2.8e5, 300
 a = vL**2 / (2 * L); t = vL / a; F = m * a; Pc = F * c / 2; Pin = Pc / N
 print(f"  a={a:.0f} m/s^2 ({a/G0:.0f} g) t={t:.0f} s F={F:.0f} N P_circ={Pc/1e9:.0f} GW P_in={Pin/1e6:.0f} MW E={Pin*t:.2e} J (agent 392,714,784,118 GW,390 MW,2.8e11)")
 print(f"  Doppler cap N<=c/2v={c/(2*vL):.0f}; waist w={math.sqrt(1.064e-6*L/math.pi):.2f} m (agent 5.8)")
 v_e1 = math.sqrt(2 * MU_SUN / AU); v_earth = math.sqrt(MU_SUN / AU)
-print(f"  v_inf={kms(math.sqrt((vL+v_earth)**2 - v_e1**2)):.1f} km/s (agent 307)")
+cavity = laser_cavity_boost(Pin / 1e6, t, N, m)
+print(f"  v_inf={cavity['vInf_km_s']:.1f} km/s (agent 307)")
 print("\n== Claude: Po-210 direct-charge ion drive ==")
 P0 = 400 * 144; tau = 138.376 * 86400 / math.log(2); Pj = P0 * 0.3 * 0.7; E = Pj * tau
 ve = math.sqrt(2 * E / 4); dv = ve * math.log(6.4 / 2.4)

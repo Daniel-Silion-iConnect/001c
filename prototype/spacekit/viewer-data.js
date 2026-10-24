@@ -30,9 +30,13 @@ export function validateScenario(doc) {
   require(Array.isArray(doc.events), 'events must be an array.');
   doc.events.forEach((ev, index) => {
     const at = `events[${index}]`;
-    require(ev && ['burn', 'oberthBurn', 'tetherRelease', 'hitchhike', 'gravityAssist', 'solarSail'].includes(ev.type), `${at}: unsupported event type.`);
+    require(ev && ['burn', 'oberthBurn', 'tetherRelease', 'hitchhike', 'gravityAssist', 'solarSail', 'laserCavityBoost'].includes(ev.type), `${at}: unsupported event type.`);
     require(ev.id === undefined || (typeof ev.id === 'string' && ev.id.trim()), `${at}: id must be a nonempty string.`);
-    if (ev.type === 'solarSail') {
+    if (ev.type === 'laserCavityBoost') {
+      require(['power_MW', 'duration_s', 'probeMass_kg'].every(key => number(ev[key]) && ev[key] > 0)
+        && number(ev.recyclingFactor) && ev.recyclingFactor >= 1, `${at}: invalid laser-cavity parameters.`);
+      require(['prograde', 'retrograde', 'radial', 'normal'].includes(ev.direction), `${at}: invalid direction.`);
+    } else if (ev.type === 'solarSail') {
       require(doc.centralBody === 'Sun' && number(ev.beta) && ev.beta >= 0 && ev.beta < 1, `${at}: solarSail needs Sun and 0 ≤ beta < 1.`);
       require(ev.location === undefined || ['current', 'perihelion', 'periapsis', 'aphelion', 'apoapsis'].includes(ev.location) || number(ev.location), `${at}: invalid sail location.`);
     } else if (ev.type === 'gravityAssist') {

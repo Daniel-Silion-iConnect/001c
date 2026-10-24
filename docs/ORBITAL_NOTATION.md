@@ -43,10 +43,36 @@ Use `type: "cartesian"`, `r: [x, y, z]`, `v: [vx, vy, vz]`, and `units: { "r": "
 | `hitchhike` | `deltaV_km_s`, `direction` |
 | `gravityAssist` | Nonempty `body` and at least one of `periapsis_km`, `periapsisAltitude_km` (not both), `turnAngle_deg` |
 | `solarSail` | `beta`, dimensionless lightness number, 0 ≤ β < 1 |
+| `laserCavityBoost` | positive `power_MW`, `duration_s`, `probeMass_kg`; `recyclingFactor` ≥ 1; `direction` |
 
 Impulse magnitudes are nonnegative scalars in km/s; zero is allowed for a no-op. `direction` is required and uses the pre-event local state: `prograde` follows velocity, `retrograde` opposes velocity, `radial` points away from the central body, and `normal` follows the angular momentum vector r × v. The frame and initial state determine these vectors; degenerate vectors require engine handling. This version provides no inward radial, negative normal, or explicit vector impulses. `hitchhike` uses the same local direction convention; modeling alignment with a target object's velocity is future engine work.
 
 `oberthBurn` is the chosen distinct event type for an impulse at a specified perihelion distance from the central body's center.
+
+### `laserCavityBoost`
+
+Ideal photon-recycling laser shot: input laser power `power_MW` is multiplied
+by the dimensionless effective reflection count `recyclingFactor`. Reflective
+thrust is F = 2 N P / c, acceleration is F / `probeMass_kg`, and the integrated
+speed gain is Δv = F · `duration_s` / `probeMass_kg`. The required `direction`
+uses the pre-event local vectors defined above. This speed gain counts in
+`totalDeltaV_km_s` even though energy and momentum come from external infrastructure.
+
+The engine applies this integrated thrust at the current launch position; it
+does not propagate a finite-duration powered leg. Constant power, recycling
+and probe mass, an effectively fixed recoil anchor, and perfect beam capture
+are assumed. Earth/Moon escape losses, Doppler losses, cavity stability, mirror
+heating and structural feasibility are outside this approximation. The log's
+`laserCavity` object reports force, acceleration (SI and g), circulating power,
+input energy, duration, and boost distance relative to the launcher.
+
+Concept D starts on a circular 1 AU solar orbit and points prograde: a 2 kg
+probe, N = 300, 391.7288118 MW and 714.2857143 s give Δv = 280 km/s, about
+40 g over 100,000 km, and v∞ ≈ 306.9 km/s. The reference function
+`laser_cavity_boost` in `analysis/ideas_calc.py` uses rounded c, AU and μ☉;
+the engine uses its existing precise constants (differences < 0.01 km/s).
+This is an exotic, speculative TRL 2 architecture; the Moon-anchored moving
+optical cavity is assumed, not demonstrated.
 
 ### `solarSail`
 
@@ -109,7 +135,7 @@ Fields:
 - `location` is `current` (default), `perihelion` / `periapsis`, `aphelion` / `apoapsis`, or a true anomaly in degrees. `direction` is the tip velocity at release.
 - The engine logs `tether`: tip speed, payload Δv, facility recoil, and payload acceleration in g when the length is known. The payload Δv counts in `totalDeltaV_km_s`.
 
-The old `elements`, vector `deltaV`, and event `units` fields are rejected. The engine (`prototype/spacekit/engine.js`) models `burn`, `oberthBurn`, `gravityAssist`, `tetherRelease`, and `solarSail`. It passes `hitchhike` through with a warning.
+The old `elements`, vector `deltaV`, and event `units` fields are rejected. The engine (`prototype/spacekit/engine.js`) models `burn`, `oberthBurn`, `gravityAssist`, `tetherRelease`, `solarSail`, and `laserCavityBoost`. It passes `hitchhike` through with a warning.
 
 ## Validation
 

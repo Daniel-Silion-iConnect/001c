@@ -17,8 +17,9 @@
   <aside id="info" aria-label="Trajectory controls">
     <header><span class="eyebrow">001c / MISSION DESIGN</span><h1 id="title">Trajectory viewer</h1></header>
     <label for="picker">Reference scenario</label>
-    <select id="picker" aria-describedby="picker-note"></select>
-    <p id="picker-note" class="muted">Concepts A/B/C and Voyager baselines, fastest final v∞ first. Or load any JSON path below.</p>
+    <select id="picker" aria-describedby="picker-note picker-feasibility"></select>
+    <p id="picker-feasibility" hidden></p>
+    <p id="picker-note" class="muted">Concepts and Voyager baselines, fastest final v∞ first. Exotic concepts are speculative. Or load any JSON path below.</p>
     <form method="get">
       <label for="scenario">Scenario JSON</label>
       <div class="load-row"><input id="scenario" name="scenario" required><button>Load</button></div>

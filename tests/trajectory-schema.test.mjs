@@ -12,6 +12,22 @@ const check = (name, expected, change) => test(name, () => {
 });
 
 check('example covers impulse and flyby event types', true, value => assert.equal(value.events.length, 5));
+const cavity = { type: 'laserCavityBoost', power_MW: 392, duration_s: 714, recyclingFactor: 300, probeMass_kg: 2, direction: 'prograde' };
+check('constant-power cavity boost', true, value => { value.events = [cavity]; });
+check('single-pass cavity with notes', true, value => { value.events = [{ ...cavity, recyclingFactor: 1, id: 'shot', notes: 'One reflection' }]; });
+for (const key of Object.keys(cavity)) {
+  check(`cavity requires ${key}`, false, value => {
+    const event = { ...cavity }; delete event[key]; value.events = [event];
+  });
+}
+for (const key of ['power_MW', 'duration_s', 'probeMass_kg']) {
+  for (const invalid of [0, -1, '1']) check(`cavity rejects ${key} = ${invalid}`, false, value => {
+    value.events = [{ ...cavity, [key]: invalid }];
+  });
+}
+for (const extra of [{ recyclingFactor: 0.5 }, { recyclingFactor: '300' }, { direction: 'inward' }, { deltaV_km_s: 280 }, { beta: 0.25 }]) {
+  check(`cavity rejects ${JSON.stringify(extra)}`, false, value => { value.events = [{ ...cavity, ...extra }]; });
+}
 for (const beta of [0, 0.25, 0.5, 0.999]) check(`solar sail beta ${beta}`, true, value => {
   value.events = [{ type: 'solarSail', beta }];
 });

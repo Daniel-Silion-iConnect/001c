@@ -439,6 +439,46 @@ function impulse(state, dv) {
 
 // ---------- event handlers ----------
 
+/** Constant-power reflective cavity: integrate F = 2 N P / c over the shot.
+ * Like ideas_calc.py, collapse the short boost to the current launch position;
+ * this is not finite-thrust propagation or an optical cavity simulation.
+ */
+function handleLaserCavityBoost(state, ev, entry) {
+  for (const key of ['power_MW', 'duration_s', 'probeMass_kg']) {
+    if (!Number.isFinite(ev[key]) || ev[key] <= 0) {
+      throw new RangeError(`laserCavityBoost ${key} must be finite and positive`);
+    }
+  }
+  if (!Number.isFinite(ev.recyclingFactor) || ev.recyclingFactor < 1) {
+    throw new RangeError('laserCavityBoost recyclingFactor must be finite and ≥ 1');
+  }
+  if (!['prograde', 'retrograde', 'radial', 'normal', 'radialOut'].includes(ev.direction)) {
+    throw new Error('laserCavityBoost requires a supported direction');
+  }
+  const circulatingPower_MW = ev.power_MW * ev.recyclingFactor;
+  const force_N = 2 * circulatingPower_MW * 1e6 / (C_KM_S * 1e3);
+  const acceleration_m_s2 = force_N / ev.probeMass_kg;
+  const dv = acceleration_m_s2 * ev.duration_s / 1e3;
+  if (![circulatingPower_MW, force_N, acceleration_m_s2, dv].every(Number.isFinite)) {
+    throw new RangeError('laserCavityBoost parameters overflow the boost calculation');
+  }
+  impulse(state, scale(directionVector(state, ev.direction), dv));
+  entry.laserCavity = {
+    power_MW: ev.power_MW,
+    circulatingPower_MW,
+    duration_s: ev.duration_s,
+    recyclingFactor: ev.recyclingFactor,
+    probeMass_kg: ev.probeMass_kg,
+    force_N,
+    acceleration_m_s2,
+    acceleration_g: acceleration_m_s2 / (G0_KM_S2 * 1e3),
+    inputEnergy_J: ev.power_MW * 1e6 * ev.duration_s,
+    boostDistance_km: 0.5 * dv * ev.duration_s,
+    model: 'constant-power thrust integrated at launch position; no finite-thrust propagation'
+  };
+  return dv;
+}
+
 function sailMu(mu, beta, centralBody) {
   // The attractive-conic solver cannot represent zero or repulsive gravity.
   if (!Number.isFinite(beta) || beta < 0 || beta >= 1) {
@@ -713,6 +753,7 @@ function handleGravityAssist(state, ev, entry) {
 }
 
 const HANDLERS = {
+  laserCavityBoost: handleLaserCavityBoost,
   burn: handleBurn,
   oberthBurn: handleOberthBurn,
   tetherRelease: handleTetherRelease,

@@ -24,6 +24,16 @@ Goal: v∞ ≥ 300 km/s (0.001c) for a 1 kg probe. The owner seeded two ideas (a
 2. **Po-210 alpha-voltaic ion drive**: 317 km/s Δv from 6.4 kg wet. The numbers check to <1%; the problem is supply and conversion efficiency.
 3. **Chirped pellet slipstream**: 318 km/s with ~131 GJ of external energy; the problem is aiming and ionisation.
 
+The [Concept D scenario](../../prototype/spacekit/scenarios/scenario-d.json)
+implements the ideal cavity check using `laserCavityBoost` (see
+[event notation](../ORBITAL_NOTATION.md#lasercavityboost)). The reference probe
+mass is **2 kg**; **40 g is acceleration**, not a 40 gram probe. The engine
+integrates constant photon thrust over the 714 s shot at the launch position,
+with no powered-leg propagation or Earth/Moon escape losses. Its precise
+physical constants differ slightly from the rounded Python constants, by less
+than 0.01 km/s in Δv and v∞. Optical stability remains the showstopper; the
+scenario is explicitly exotic and speculative.
+
 ## Seeded idea 1: antimatter
 - 1 kg at 300 km/s carries 4.5×10¹⁰ J. A beamed-core engine (v_e ≈ 0.33c, η ≈ 0.1 to jet) needs ~**2.5 mg** of antiprotons, a tiny propellant fraction.
 - Production: ~10 ng/yr worldwide (CERN AD/ELENA) → 2.5×10⁵ years. Storage: ~10³ trapped anti-H atoms or ~10⁵ p̄ for months in Penning traps.
