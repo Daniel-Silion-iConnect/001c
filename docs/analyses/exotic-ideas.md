@@ -34,6 +34,28 @@ physical constants differ slightly from the rounded Python constants, by less
 than 0.01 km/s in Δv and v∞. Optical stability remains the showstopper; the
 scenario is explicitly exotic and speculative.
 
+The [Concept E scenario](../../prototype/spacekit/scenarios/scenario-e.json)
+implements the Po-210 check with `ionDrive` (see
+[event notation](../ORBITAL_NOTATION.md#iondrive)). The matching
+`po210_ion_drive` function in `analysis/ideas_calc.py` integrates all future
+exponential decay energy: 57.6 kW initial heat × 0.3 conversion × 0.7 thruster
+efficiency × (138.376 days / ln 2) = **2.08637×10¹¹ J** of jet energy.
+For 4 kg xenon, vₑ = **322.984 km/s**, Isp = **32935.157345 s**, and the
+6.4/2.4 mass ratio gives **316.792 km/s Δv**. The engine caps propellant use
+by both energy and wet-minus-dry mass. The reference assumes the entire decay
+energy budget (an infinite-time upper bound) is used at fixed Isp.
+
+The allowed first-order approximation applies that Δv as a **radial outward
+impulse at the start** of a circular 1 AU solar orbit. Keeping its tangential
+orbital speed gives v∞ = √(Δv² − μ☉/AU) = **315.388 km/s**, within the table's
+315–320 km/s range. This geometry is explicit; a prograde impulse would give a
+different escape speed. The preview propagates the resulting coast, not a
+months-long powered flight. Gravity during thrust, steering, heat rejection
+and Earth escape require a finite-thrust follow-up model. Po-210 supply
+(0.4 kg, about four times world output), rapid decay, and the assumed 30%
+direct-charge conversion versus a few percent demonstrated remain the
+showstoppers. Concept E is labeled exotic and speculative, TRL 2–3.
+
 ## Seeded idea 1: antimatter
 - 1 kg at 300 km/s carries 4.5×10¹⁰ J. A beamed-core engine (v_e ≈ 0.33c, η ≈ 0.1 to jet) needs ~**2.5 mg** of antiprotons, a tiny propellant fraction.
 - Production: ~10 ng/yr worldwide (CERN AD/ELENA) → 2.5×10⁵ years. Storage: ~10³ trapped anti-H atoms or ~10⁵ p̄ for months in Penning traps.

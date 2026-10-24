@@ -44,10 +44,49 @@ Use `type: "cartesian"`, `r: [x, y, z]`, `v: [vx, vy, vz]`, and `units: { "r": "
 | `gravityAssist` | Nonempty `body` and at least one of `periapsis_km`, `periapsisAltitude_km` (not both), `turnAngle_deg` |
 | `solarSail` | `beta`, dimensionless lightness number, 0 ≤ β < 1 |
 | `laserCavityBoost` | positive `power_MW`, `duration_s`, `probeMass_kg`; `recyclingFactor` ≥ 1; `direction` |
+| `ionDrive` | positive `isp_s`, `power_W`, `halfLife_days`, `wetMass_kg`, `dryMass_kg`; `conversionEfficiency`, `thrusterEfficiency` in (0, 1]; `direction` |
 
 Impulse magnitudes are nonnegative scalars in km/s; zero is allowed for a no-op. `direction` is required and uses the pre-event local state: `prograde` follows velocity, `retrograde` opposes velocity, `radial` points away from the central body, and `normal` follows the angular momentum vector r × v. The frame and initial state determine these vectors; degenerate vectors require engine handling. This version provides no inward radial, negative normal, or explicit vector impulses. `hitchhike` uses the same local direction convention; modeling alignment with a target object's velocity is future engine work.
 
 `oberthBurn` is the chosen distinct event type for an impulse at a specified perihelion distance from the central body's center.
+
+### `ionDrive`
+
+An ideal constant-Isp ion engine powered by exponential radioactive decay.
+`power_W` is initial **thermal** source power, `halfLife_days` is its decay
+half-life, `conversionEfficiency` converts heat to electricity, and
+`thrusterEfficiency` converts electricity to exhaust kinetic energy. The engine
+requires `wetMass_kg > dryMass_kg > 0`; the schema checks each mass separately.
+Masses are local to this event, including the source and hardware in dry mass;
+the engine does not carry a mass budget between events.
+
+With g₀ = 9.80665 m/s², exhaust speed vₑ = `isp_s` · g₀,
+τ = `halfLife_days` · 86400 / ln(2), and initial jet power
+Pⱼ₀ = `power_W` · `conversionEfficiency` · `thrusterEfficiency`, integrate
+Pⱼ(t) = Pⱼ₀ exp(−t/τ) over all future time: Eⱼ = Pⱼ₀ τ. Expelled propellant is
+min(wet − dry, 2Eⱼ/vₑ²), and Δv = vₑ ln(wet / final mass). Insufficient energy
+leaves unused propellant aboard; excess energy cannot reduce mass below dry mass.
+`direction` uses the pre-event local vectors. The resulting Δv counts in
+`totalDeltaV_km_s`; `log[].ionDrive` reports decay time, jet power/energy, exhaust
+speed, consumed propellant, final mass and initial acceleration.
+
+This is an **equivalent impulse at the start**, using all future decay energy
+as an upper bound, not a finite-thrust trajectory. At the reference Isp, using
+all 4 kg of xenon takes infinite time in this ideal exponential model. It does
+not propagate the months-long powered leg, solar gravity during thrust,
+steering, thermal losses beyond the specified efficiencies, or Earth escape.
+The visualization shows the post-impulse coast, not the actual powered mission.
+
+[Concept E](../prototype/spacekit/scenarios/scenario-e.json) uses 0.4 kg Po-210
+at 144 W/g (57.6 kW thermal initially), 138.376 day half-life, efficiencies
+0.3 and 0.7, and 6.4/2.4 kg wet/dry masses. Its Isp of 32935.157345 s gives
+322.984 km/s exhaust and 316.792 km/s Δv, matching `po210_ion_drive` in
+`analysis/ideas_calc.py`. Starting on a circular 1 AU orbit with a radial
+outward impulse preserves the tangential orbital velocity, so
+v∞² = Δv² − μ☉/AU, giving **315.388 km/s**, within the analysis's 315–320 range.
+The engine uses precise solar constants; Python's rounded constants change
+v∞ by less than 0.001 km/s. Po-210 supply and the assumed 30% direct-charge
+conversion remain the speculative architecture's showstoppers (TRL 2–3).
 
 ### `laserCavityBoost`
 
@@ -135,7 +174,7 @@ Fields:
 - `location` is `current` (default), `perihelion` / `periapsis`, `aphelion` / `apoapsis`, or a true anomaly in degrees. `direction` is the tip velocity at release.
 - The engine logs `tether`: tip speed, payload Δv, facility recoil, and payload acceleration in g when the length is known. The payload Δv counts in `totalDeltaV_km_s`.
 
-The old `elements`, vector `deltaV`, and event `units` fields are rejected. The engine (`prototype/spacekit/engine.js`) models `burn`, `oberthBurn`, `gravityAssist`, `tetherRelease`, `solarSail`, and `laserCavityBoost`. It passes `hitchhike` through with a warning.
+The old `elements`, vector `deltaV`, and event `units` fields are rejected. The engine (`prototype/spacekit/engine.js`) models `burn`, `oberthBurn`, `gravityAssist`, `tetherRelease`, `solarSail`, `laserCavityBoost`, and `ionDrive`. It passes `hitchhike` through with a warning.
 
 ## Validation
 

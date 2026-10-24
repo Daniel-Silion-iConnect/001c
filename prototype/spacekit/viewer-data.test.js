@@ -12,6 +12,17 @@ const example = JSON.parse(readFileSync(new URL('./schema-example.json', import.
 const scenario = () => structuredClone(example);
 const near = (a, b, tolerance = 1e-9) => assert.ok(Math.abs(a - b) < tolerance, `${a} ≠ ${b}`);
 
+test('viewer rejects invalid ion-drive power, decay, masses, efficiency and direction', () => {
+  const doc = JSON.parse(readFileSync(new URL('./scenarios/scenario-e.json', import.meta.url)));
+  const ev = doc.events[0];
+  for (const extra of [{ isp_s: 0 }, { power_W: Infinity }, { halfLife_days: -1 },
+    { wetMass_kg: 2.4 }, { dryMass_kg: 7 }, { dryMass_kg: 0 },
+    { conversionEfficiency: 0 }, { thrusterEfficiency: 1.1 }, { direction: 'inward' }]) {
+    doc.events = [{ ...ev, ...extra }];
+    assert.throws(() => validateScenario(doc), /ionDrive|direction/);
+  }
+});
+
 test('cruise times convert AU and light-years and compare with exactly 0.001c', () => {
   near(CRUISE_TARGET_KM_S, 299.792458);
   assert.equal(JULIAN_YEAR_S, 31557600);

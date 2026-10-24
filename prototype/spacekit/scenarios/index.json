@@ -1,5 +1,14 @@
 [
   {
+    "id": "concept-e",
+    "name": "Concept E: Po-210 direct-charge ion drive",
+    "file": "scenario-e.json",
+    "summary": "Po-210 decay-powered xenon drive: 316.792 km/s rocket delta-v from 6.4 kg wet; radial equivalent impulse at 1 AU gives ideal solar v∞ 315.388 km/s.",
+    "category": "exotic",
+    "feasibility": "TRL 2–3; ideal decay energy and rocket equation check out, assuming 30% direct-charge conversion and 70% thruster efficiency.",
+    "showstopper": "0.4 kg Po-210 is about four times world output and decays about 0.5% per day; 30% direct-charge conversion is assumed versus only a few percent demonstrated."
+  },
+  {
     "id": "concept-d",
     "name": "Concept D: Moon-anchored photon-recycling cavity",
     "file": "scenario-d.json",
