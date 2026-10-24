@@ -22,11 +22,19 @@ The default scenario is `schema-example.json`. Load another file with the form o
 `?scenario=other-trajectory.json` (paths resolve relative to the viewer). Absolute
 HTTP URLs also work if their server permits CORS.
 
-Select a leg or numbered event to inspect its v∞ in km/s and percentage of c.
-The initial view selects the final leg. Bound orbits display “Bound orbit” because
+Select a leg or numbered event to inspect its v∞ in km/s and percentage of c
+and move the white probe to that leg's preview start. The initial view selects
+the initial leg. Bound orbits display “Bound orbit” because
 they have no escape asymptote; a parabolic escape displays zero. In 3D, drag to
 rotate and scroll to zoom. The canvas fallback uses an oblique projection in AU;
-it retains the same leg selector, event markers, and HUD.
+it retains the same leg selector, event markers, probe, and HUD.
+
+Press **Play** to preview all legs in sequence, **Pause** to stop, or scrub the
+**Preview time** slider (including with the keyboard) to seek while paused.
+Playback stops at the end; **Replay** starts again from the initial leg. A full
+preview takes one minute at a constant simulated-time scale. The HUD reports
+total preview time and elapsed time within the current leg, in days. Switching
+between 2D and 3D, including after WebGL context loss, preserves the probe time.
 
 ## Scope and validation
 
@@ -36,7 +44,13 @@ states, mean anomaly, and the schema's outward `radial` direction for the engine
 Coordinates stay in the scenario's declared inertial frame; no reference planets
 or frame conversion are needed for this single-body view.
 
-Each leg is a sampled complete conic, not a scheduled or propagated mission arc.
+Each leg is a sampled complete conic. Playback uses elliptic or hyperbolic
+Kepler propagation to place the probe at the requested time, rather than moving
+uniformly through the sampled points. Ellipses cover one period from apoapsis;
+open paths run from the inbound radius cap through periapsis to the outbound
+cap. Parabolic states produced by burns use Barker's equation.
+The probe resets between independent conics: cumulative preview time is the
+sum of their flight times, not a mission epoch or scheduled event-to-event arc.
 Ellipses are closed orbits; hyperbolic and parabolic legs are open polylines capped
 at 30 AU. Numbered markers use the engine's actual post-event position. Coincident
 markers have offset labels so each event remains selectable.

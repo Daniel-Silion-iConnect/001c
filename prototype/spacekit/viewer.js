@@ -1,4 +1,4 @@
-import { buildTrajectory, speedText } from './viewer-data.js';
+import { buildTrajectory, buildPlayback, playbackAt, speedText } from './viewer-data.js';
 import { canvasView, threeView, legColor } from './renderers.js';
 
 const element = (id) => document.getElementById(id);
@@ -12,6 +12,7 @@ async function start() {
   try { doc = await response.json(); }
   catch { throw new Error(`Cannot parse ${scenario}: expected valid JSON.`); }
   const model = buildTrajectory(doc);
+  const playback = buildPlayback(model);
   const title = doc.name || 'Untitled trajectory';
   element('title').textContent = title;
   document.title = `001c — ${title}`;
@@ -19,9 +20,12 @@ async function start() {
   element('summary').textContent = `${model.result.totalDeltaV_km_s.toFixed(3)} km/s total modeled Δv · ${model.result.log.filter(e => e.status === 'skipped').length} skipped events`;
   const labels = [];
   const eventButtons = [];
-  let selected = model.legs.length - 1;
+  let selected = -1;
+  let current = playbackAt(playback, 0);
+  let playing = false;
+  let previousFrame;
   let view;
-  const select = (index) => {
+  const inspect = (index) => {
     selected = index;
     element('leg').value = String(index);
     const leg = model.legs[index];
@@ -33,6 +37,42 @@ async function start() {
     labels.forEach((button, i) => button.setAttribute('aria-pressed', String(i + 1 === index)));
     view?.select(index);
   };
+  const days = seconds => `${(seconds / 86400).toFixed(3)} d`;
+  const seek = (time_s) => {
+    current = playbackAt(playback, time_s);
+    if (selected !== current.index) inspect(current.index);
+    view?.setProbe(current.position);
+    element('time').value = String(current.elapsed_s);
+    element('time').setAttribute('aria-valuetext', `Leg ${current.index}, ${days(current.legTime_s)}; preview ${days(current.elapsed_s)}`);
+    element('playback-time').textContent = `Preview ${days(current.elapsed_s)} / ${days(playback.duration_s)} · Leg ${current.index}: ${days(current.legTime_s)} / ${days(playback.legs[current.index].duration_s)}`;
+  };
+  const setPlaying = value => {
+    playing = value;
+    previousFrame = undefined;
+    element('play').textContent = value ? 'Pause' : current.elapsed_s >= playback.duration_s ? 'Replay' : 'Play';
+    element('play').setAttribute('aria-pressed', String(value));
+  };
+  const select = index => { seek(playback.legs[index].start_s); setPlaying(playing); };
+  element('time').max = String(playback.duration_s);
+  element('time').disabled = element('play').disabled = playback.duration_s === 0;
+  element('time').addEventListener('input', event => {
+    seek(Number(event.target.value));
+    setPlaying(false);
+  });
+  element('play').addEventListener('click', () => {
+    if (!playing && current.elapsed_s >= playback.duration_s) seek(0);
+    setPlaying(!playing);
+  });
+  // One minute of wall time previews the full timeline, at a constant time scale.
+  const frame = timestamp => {
+    if (playing && !document.hidden && previousFrame !== undefined) {
+      seek(current.elapsed_s + (timestamp - previousFrame) / 1000 * playback.duration_s / 60);
+      if (current.elapsed_s >= playback.duration_s) setPlaying(false);
+    }
+    previousFrame = document.hidden ? undefined : timestamp;
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
   model.legs.forEach((_, index) => {
     const option = document.createElement('option'); option.value = String(index);
     option.textContent = index === 0 ? '0 · Initial orbit' : `${index} · After ${model.markers[index - 1].label}`;
@@ -66,10 +106,12 @@ async function start() {
     view?.dispose();
     view = canvasView(element('plot'), model, labels, doc.centralBody);
     view.select(selected);
+    view.setProbe(current.position);
     element('view-note').textContent = `2D oblique projection · ${reason}`;
     element('viewport').dataset.renderer = 'canvas';
   };
-  fallback('Loading interactive 3D…'); select(selected);
+  inspect(current.index);
+  fallback('Loading interactive 3D…'); seek(0);
   // Start in canvas immediately. A hanging CDN cannot prevent a usable viewer.
   let timeout;
   try {
@@ -81,6 +123,7 @@ async function start() {
     view = threeView(element('plot'), model, labels, doc.centralBody, THREE, OrbitControls,
       () => fallback('WebGL context lost.'));
     view.select(selected);
+    view.setProbe(current.position);
     element('view-note').textContent = `${doc.centralBody} at origin · Drag to rotate · Scroll to zoom · Numbered markers select events`;
     element('viewport').dataset.renderer = 'three';
   } catch {

@@ -20,15 +20,21 @@
       <div class="load-row"><input id="scenario" name="scenario" value="schema-example.json" required><button>Load</button></div>
     </form>
     <p id="status" role="status">Loading scenario…</p>
-    <section id="hud" hidden aria-live="polite">
+    <section id="hud" hidden>
       <label for="leg">Current leg</label><select id="leg"></select>
+      <div class="playback-controls">
+        <button id="play" type="button" aria-pressed="false">Play</button>
+        <label for="time">Preview time</label>
+        <input id="time" type="range" min="0" max="1" step="any" value="0" aria-describedby="playback-time">
+      </div>
+      <p id="playback-time"></p>
       <dl><dt>Asymptotic speed v∞</dt><dd id="speed"></dd><dt>Fraction of light speed</dt><dd id="percent"></dd></dl>
       <p id="context"></p>
       <h2>Events <span class="muted">/ select to inspect</span></h2>
       <ol id="events"></ol>
       <p id="summary"></p>
       <details><summary>Engine notes</summary><ul id="warnings"></ul></details>
-      <p class="muted">Each leg shows its complete two-body conic, not a timed mission track. Unbound conics are sampled open paths, capped at 30 AU. No event scheduling is modeled.</p>
+      <p class="muted">The white probe previews complete conics in leg order using two-body flight time. One minute plays the full preview. Each ellipse runs from apoapsis through one orbit; open paths run inbound to outbound, capped at 30 AU. The probe resets between independent legs. Preview time is not a mission schedule.</p>
     </section>
   </aside>
   <main id="viewport" aria-label="Trajectory visualization"><div id="plot"></div><div id="markers"></div><p id="view-note"></p></main>

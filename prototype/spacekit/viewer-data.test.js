@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { AU_KM, C_KM_S, MU, applyTrajectory, circularSpeed } from './engine.js';
-import { validateScenario, trueAnomalyFromMean, engineElements, buildTrajectory, speedText } from './viewer-data.js';
+import { validateScenario, trueAnomalyFromMean, engineElements, buildTrajectory, speedText, buildPlayback, playbackAt } from './viewer-data.js';
 import { legColor } from './renderers.js';
 
 const example = JSON.parse(readFileSync(new URL('./schema-example.json', import.meta.url)));
@@ -122,4 +122,88 @@ test('empty events show the initial orbit and null v∞ means bound, not zero', 
   assert.deepEqual(speedText(C_KM_S / 1000), { speed: '299.792 km/s', percent: '0.100000% of c' });
   assert.equal(legColor(0), legColor(6));
   assert.notEqual(legColor(0), legColor(1));
+});
+
+const conicPreview = (a, e, centralBody = 'Sun', orientation = {}) => {
+  const doc = scenario();
+  doc.centralBody = centralBody; doc.events = [];
+  doc.initialElements = { type: 'keplerian', a, e, i: 0, raan: 0, argp: 0, nu: 0,
+    units: { a: 'AU', angles: 'deg' }, ...orientation };
+  return buildPlayback(buildTrajectory(doc));
+};
+const nearPosition = (actual, expected, tolerance = 1e-8) => actual.forEach((x, i) => near(x, expected[i], tolerance));
+
+test('elliptic playback uses Kepler time, one period, and the correct central body', () => {
+  for (const centralBody of ['Sun', 'Earth']) {
+    const a = 2, e = 0.6;
+    const playback = conicPreview(a, e, centralBody);
+    const n = Math.sqrt(MU[centralBody] / (a * AU_KM) ** 3);
+    near(playback.duration_s * n, 2 * Math.PI);
+    nearPosition(playbackAt(playback, 0).position, [-a * (1 + e), 0, 0]);
+    nearPosition(playbackAt(playback, playback.duration_s).position, [-a * (1 + e), 0, 0]);
+    nearPosition(playbackAt(playback, playback.duration_s / 2).position, [a * (1 - e), 0, 0]);
+    // E = -π/2: x = a(cos E - e), y = a sqrt(1-e²) sin E.
+    nearPosition(playbackAt(playback, (Math.PI / 2 + e) / n).position, [-a * e, -a * Math.sqrt(1 - e * e), 0]);
+  }
+  const circle = conicPreview(1, 0);
+  nearPosition(playbackAt(circle, circle.duration_s / 4).position, [0, -1, 0]);
+  const inclined = conicPreview(1, 0, 'Sun', { i: 90 });
+  nearPosition(playbackAt(inclined, inclined.duration_s / 4).position, [0, 0, -1]);
+});
+
+test('hyperbolic playback solves signed Kepler time and stays inside 30 AU', () => {
+  const a = -2, e = 1.5;
+  const playback = conicPreview(a, e);
+  const n = Math.sqrt(MU.Sun / (Math.abs(a) * AU_KM) ** 3);
+  const hCap = Math.acosh((30 / Math.abs(a) + 1) / e);
+  const capTime = (e * Math.sinh(hCap) - hCap) / n;
+  near(playback.duration_s / (2 * capTime), 1);
+  near(Math.hypot(...playbackAt(playback, 0).position), 30);
+  near(Math.hypot(...playbackAt(playback, playback.duration_s).position), 30);
+  for (const h of [-1, 0, 1]) {
+    const time = capTime + (e * Math.sinh(h) - h) / n;
+    nearPosition(playbackAt(playback, time).position,
+      [Math.abs(a) * (e - Math.cosh(h)), Math.abs(a) * Math.sqrt(e * e - 1) * Math.sinh(h), 0]);
+  }
+  for (let i = 0; i <= 100; i++) {
+    const { position } = playbackAt(playback, i * playback.duration_s / 100);
+    assert.ok(position.every(Number.isFinite));
+    assert.ok(Math.hypot(...position) <= 30 + 1e-8);
+  }
+});
+
+test('playback handles leg boundaries, clamping, skipped events, and no events without mutation', () => {
+  const model = buildTrajectory(example);
+  const original = structuredClone(model);
+  const playback = buildPlayback(model);
+  assert.equal(playback.legs.length, model.legs.length);
+  assert.deepEqual(playbackAt(playback, -100), playbackAt(playback, 0));
+  assert.deepEqual(playbackAt(playback, playback.duration_s + 100), playbackAt(playback, playback.duration_s));
+  for (const [i, leg] of playback.legs.entries()) {
+    assert.ok(leg.duration_s > 0);
+    assert.equal(playbackAt(playback, leg.start_s).index, i);
+    nearPosition(playbackAt(playback, leg.start_s).position, model.legs[i].ephemerisPoints[0].r_AU);
+    const halfway = playbackAt(playback, leg.start_s + leg.duration_s / 2);
+    near(halfway.legTime_s / leg.duration_s, 0.5);
+  }
+  assert.equal(playbackAt(playback, playback.duration_s).index, model.legs.length - 1);
+  assert.deepEqual(model, original);
+  assert.equal(conicPreview(1, 0).legs.length, 1);
+  for (const value of [NaN, Infinity, -Infinity]) assert.throws(() => playbackAt(playback, value), /finite/);
+  assert.throws(() => buildPlayback({ legs: [] }), /at least one/);
+  assert.throws(() => buildPlayback(buildTrajectory(example, { ephemerisSamples: 0 })), /at least two/);
+});
+
+test('a burn to parabolic escape remains playable using Barker time', () => {
+  const doc = scenario();
+  doc.events = [{ type: 'burn', deltaV_km_s: (Math.SQRT2 - 1) * circularSpeed(MU.Sun, AU_KM), direction: 'prograde' }];
+  const playback = buildPlayback(buildTrajectory(doc));
+  const leg = playback.legs[1];
+  assert.equal(leg.k.a, Infinity);
+  const d = 1;
+  const t = Math.sqrt(leg.k.p ** 3 / MU.Sun) / 2 * (d + d ** 3 / 3);
+  const at = playbackAt(playback, leg.start_s + leg.duration_s / 2 + t);
+  nearPosition(at.position, [0, leg.k.p / AU_KM, 0]);
+  near(Math.hypot(...playbackAt(playback, leg.start_s).position), 30);
+  near(Math.hypot(...playbackAt(playback, playback.duration_s).position), 30);
 });
