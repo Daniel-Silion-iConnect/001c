@@ -1,5 +1,6 @@
 import { buildTrajectory, buildPlayback, playbackAt, speedText } from './viewer-data.js';
 import { canvasView, threeView, legColor } from './renderers.js';
+import { createSpeedPanel } from './speed-panel.js';
 
 const element = (id) => document.getElementById(id);
 const scenario = new URLSearchParams(location.search).get('scenario') || 'schema-example.json';
@@ -33,6 +34,7 @@ async function start() {
     element('speed').textContent = text.speed;
     element('percent').textContent = text.percent;
     element('context').textContent = `Leg ${index} · ${leg.bound ? 'elliptic orbit' : leg.finalElements.e > 1 ? 'hyperbolic path' : 'parabolic path'} · e = ${leg.finalElements.e.toFixed(4)}`;
+    speedPanel.select(index);
     eventButtons.forEach((button, i) => button.setAttribute('aria-pressed', String(i + 1 === index)));
     labels.forEach((button, i) => button.setAttribute('aria-pressed', String(i + 1 === index)));
     view?.select(index);
@@ -53,6 +55,8 @@ async function start() {
     element('play').setAttribute('aria-pressed', String(value));
   };
   const select = index => { seek(playback.legs[index].start_s); setPlaying(playing); };
+  const speedPanel = createSpeedPanel(model, select);
+  element('context').after(speedPanel.element);
   element('time').max = String(playback.duration_s);
   element('time').disabled = element('play').disabled = playback.duration_s === 0;
   element('time').addEventListener('input', event => {

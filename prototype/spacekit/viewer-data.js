@@ -116,6 +116,36 @@ export function speedText(vInf) {
     : { speed: `${vInf.toFixed(3)} km/s`, percent: `${(100 * vInf / C_KM_S).toFixed(6)}% of c` };
 }
 
+export const SPEED_TARGET_KM_S = 300;
+
+/** Initial state plus the actual post-event escape speeds, including skipped steps.
+ * Keep null for bound orbits: they do not have an escape asymptote.
+ */
+export function buildSpeedSeries(model) {
+  return model.legs.map((leg, index) => ({
+    index,
+    label: index === 0 ? 'Initial orbit' : model.markers[index - 1].label,
+    status: index === 0 ? 'initial' : model.markers[index - 1].status,
+    vInf_km_s: leg.vInf_km_s
+  }));
+}
+
+/** Bound states have no escape speed and make no progress toward the target.
+ * Report the real percentage above target, but clamp the visual progress bar.
+ */
+export function targetProgress(vInf, target_km_s = SPEED_TARGET_KM_S) {
+  if (!Number.isFinite(target_km_s) || target_km_s <= 0) throw new Error('Speed target must be positive and finite.');
+  if (vInf !== null && (!Number.isFinite(vInf) || vInf < 0)) throw new Error('Escape speed must be null or nonnegative and finite.');
+  const speed = vInf ?? 0;
+  const percentReached = 100 * speed / target_km_s;
+  return {
+    bound: vInf === null,
+    gap_km_s: Math.max(0, target_km_s - speed),
+    percentReached,
+    progressPercent: Math.min(100, percentReached)
+  };
+}
+
 // Time from periapsis in seconds. Angles here are radians, unlike schema angles.
 function timeFromAnomaly(nu, k, mu) {
   if (!Number.isFinite(k.a)) {

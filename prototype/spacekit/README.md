@@ -29,6 +29,14 @@ they have no escape asymptote; a parabolic escape displays zero. In 3D, drag to
 rotate and scroll to zoom. The canvas fallback uses an oblique projection in AU;
 it retains the same leg selector, event markers, probe, and HUD.
 
+The sidebar speed chart shows v∞ after every event, with the initial orbit as
+step 0. Numbered steps match the event list; skipped steps and their incoming
+segments are grey. Hollow points denote bound orbits and are not connected as
+numeric zero speeds. Select a chart step to inspect its leg. The target readout
+tracks the selected leg's remaining gap to 300 km/s (approximately 0.1% c),
+percentage reached, and progress bar. Bound orbits contribute no escape-speed
+progress; above-target percentages remain visible while the bar caps at 100%.
+
 Press **Play** to preview all legs in sequence, **Pause** to stop, or scrub the
 **Preview time** slider (including with the keyboard) to seek while paused.
 Playback stops at the end; **Replay** starts again from the initial leg. A full
