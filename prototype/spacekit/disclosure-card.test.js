@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDisclosureCard } from './disclosure-card.js';
 
-// Exercise the factory used by both panels without a browser or DOM dependency.
+// Exercise the factory shared by story and analysis panels without a browser dependency.
 function browser(t, initialWidth) {
   let width = initialWidth;
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
@@ -29,9 +29,9 @@ function browser(t, initialWidth) {
 }
 
 for (const width of [460, 899, 900, 901, 1400]) {
-  test(`analysis cards default ${width >= 900 ? 'open' : 'closed'} at ${width}px`, t => {
+  test(`story and analysis cards default ${width >= 900 ? 'open' : 'closed'} at ${width}px`, t => {
     browser(t, width);
-    for (const [title, id] of [['Speed after each step · v∞ (km/s)', 'speed-card'], ['All travel times', 'travel-card']]) {
+    for (const [title, id] of [['Full scenario story', 'full-story-card'], ['Speed after each step · v∞ (km/s)', 'speed-card'], ['All travel times', 'travel-card']]) {
       const card = createDisclosureCard(title, id);
       assert.equal(card.element.tagName, 'details');
       assert.equal(card.element.id, id);

@@ -1,3 +1,5 @@
+import { createDisclosureCard } from './disclosure-card.js';
+
 const text = value => typeof value === 'string' ? value.trim() : '';
 const entry = (record, key) => record && Object.hasOwn(record, key) ? text(record[key]) : '';
 
@@ -48,10 +50,10 @@ export function createNarrativePanel(doc, scenarioId, shortDescription) {
       <p class="narrative-event"></p>
     </div>
   `;
-  const detailsElement = document.createElement('section');
-  detailsElement.innerHTML = `
-    <h2>Project context</h2><p class="narrative-intro"></p>
-    <h2>Full scenario story</h2><p class="narrative-scenario"></p>
+  const story = createDisclosureCard('Full scenario story', 'full-story-card');
+  story.content.innerHTML = `
+    <p class="narrative-scenario"></p>
+    <h3>Project context</h3><p class="narrative-intro muted"></p>
   `;
   let data = {}, index = 0, status;
   const render = () => {
@@ -60,7 +62,7 @@ export function createNarrativePanel(doc, scenarioId, shortDescription) {
       ['.narrative-intro', copy.intro], ['.narrative-scenario', copy.scenario],
       ['.narrative-event-title', copy.eventTitle], ['.narrative-event', copy.event]
     ]) {
-      const node = element.querySelector(selector) || detailsElement.querySelector(selector);
+      const node = element.querySelector(selector) || story.content.querySelector(selector);
       if (node.textContent !== value) node.textContent = value;
     }
     element.querySelector('.narrative-short').textContent = text(shortDescription) || copy.scenario;
@@ -68,7 +70,7 @@ export function createNarrativePanel(doc, scenarioId, shortDescription) {
   render();
   return {
     element,
-    detailsElement,
+    storyElement: story.element,
     setData(value) { data = value; render(); },
     select(value, eventStatus) { index = value; status = eventStatus; render(); }
   };
