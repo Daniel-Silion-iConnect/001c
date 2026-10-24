@@ -45,3 +45,4 @@ Process notes: Antigravity's opus quota ran out after ~2 tasks (reset ~4.5 h). C
 | PR | Agent | Task | Correct (10) | Autonomy (10) | Quality (10) | Total | Notes |
 |----|-------|------|---|---|---|---|-------|
 | #31 | Codex (gpt-6.1-sol high, full-access) | travel-time panel | 10 | 10 | 10 | 30 | Constants and spot checks correct; mobile-readable; sources doc; ~5 min |
+| #34 | Codex (gpt-6.1-sol high, full-access) | ring-anchored labels + friendly times | 10 | 10 | 9 | 29 | Leader-line labels; "12,000 yr" format; ~6 min |
