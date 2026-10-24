@@ -26,8 +26,9 @@ for testing. Load another file with the form or
 HTTP URLs also work if their server permits CORS.
 
 The **Mission story** panel shows the reference scenario's short summary and an
-explanation of the current leg's event type from `narratives.json`. The project
-intro and full scenario story are under **Advanced**. Leg 0 describes the initial orbit. Event buttons, chart
+explanation of the current leg's event type from `narratives.json`. Directly below
+it, the **Full scenario story** card contains the scenario narrative and project
+context, with the same layout for every scenario. Leg 0 describes the initial orbit. Event buttons, chart
 steps, the leg selector, and playback all update the explanation. The STP Oberth
 event also shows its solar-thermal propulsion context; skipped events are marked
 as intended maneuvers. Reference narratives use IDs from `scenarios/index.json`.
@@ -39,7 +40,7 @@ The scenario picker, selected-leg v∞ / percentage of c, gap to 300 km/s,
 playback controls, mission story, and Proxima / heliopause cruise highlights
 stay outside collapsible controls. **Advanced** starts closed and contains the
 JSON path / Load form, frame and epoch, current-leg selector, full-conics toggle,
-event list, engine notes, and detailed story. Load errors remain visible outside
+event list, and engine notes. Load errors remain visible outside
 Advanced. At widths ≤900px, the plot follows the title, picker, and headline / target
 block at 45vh tall. Playback, travel highlights, story, analysis cards, and
 Advanced follow it in one scrolling page. Desktop uses a scrolling sidebar beside
@@ -69,7 +70,7 @@ rounded to three significant figures from 1,000 (`6,470 yr`, `12,000 yr`), and
 show “—”. This cruise estimate ignores time spent
 leaving the Sun's gravity, acceleration, braking and stellar motion. See
 [milestone sources and assumptions](../../docs/analyses/travel-time-milestones.md).
-The speed chart and full travel table start expanded at widths ≥900px and closed
+The full scenario story, speed chart, and full travel table start expanded at widths ≥900px and closed
 below 900px. Their summary controls support mouse, touch, and keyboard toggling;
 resizing preserves the user's current choice.
 

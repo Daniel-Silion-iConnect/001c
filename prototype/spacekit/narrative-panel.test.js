@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { loadNarratives, narrativeText } from './narrative-panel.js';
+import { createNarrativePanel, loadNarratives, narrativeText } from './narrative-panel.js';
 import { pickerOptions, scenarioIdForPath } from './scenario-picker.js';
 
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url)));
@@ -9,6 +9,64 @@ const narratives = read('./narratives.json');
 const index = read('./scenarios/index.json');
 const options = pickerOptions(index);
 const base = 'https://example.test/viewer/';
+
+// Minimal DOM for checking panel content and state; browser checks cover layout.
+function browser(t, width) {
+  const originals = ['document', 'window'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]);
+  globalThis.document = {
+    createElement(tagName) {
+      return {
+        tagName, children: [],
+        setAttribute() {},
+        append(...children) { this.children.push(...children); },
+        set innerHTML(value) {
+          this.children = [...value.matchAll(/class="([^"]+)"/g)].map(([, className]) => ({ className, textContent: '' }));
+        },
+        querySelector(selector) {
+          return this.children.find(node => node.className?.split(' ').includes(selector.slice(1))) ?? null;
+        }
+      };
+    }
+  };
+  globalThis.window = { matchMedia: () => ({ matches: width >= 900 }) };
+  t.after(() => {
+    for (const [key, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  });
+}
+
+for (const width of [460, 1400]) {
+  test(`every scenario has a separate full-story card at ${width}px; updates preserve its toggle`, t => {
+    browser(t, width);
+    for (const reference of index) {
+      const doc = read(`./scenarios/${reference.file}`);
+      const panel = createNarrativePanel(doc, reference.id, reference.summary);
+      const card = panel.storyElement;
+      assert.equal(card.tagName, 'details');
+      assert.equal(card.id, 'full-story-card');
+      assert.equal(card.open, width >= 900);
+      assert.equal(card.children[0].textContent, 'Full scenario story');
+      assert.notEqual(card, panel.element);
+      assert.equal(panel.element.querySelector('.narrative-scenario'), null);
+      const content = card.children[1];
+      const scenario = content.querySelector('.narrative-scenario');
+      assert.equal(scenario.textContent, doc.description);
+      card.open = !card.open;
+      panel.select(1, 'skipped');
+      panel.setData(narratives);
+      assert.equal(card.open, width < 900, 'late data and leg changes preserve user choice');
+      assert.equal(scenario.textContent, narratives.scenarios[reference.id]);
+      assert.equal(content.querySelector('.narrative-intro').textContent, narratives.intro);
+      assert.equal(panel.element.querySelector('.narrative-short').textContent, reference.summary);
+      assert.match(panel.element.querySelector('.narrative-event').textContent, /skipped by the engine/);
+      panel.select(0);
+      assert.match(panel.element.querySelector('.narrative-event').textContent, /before any modeled events/);
+      assert.equal(scenario.textContent, narratives.scenarios[reference.id]);
+    }
+  });
+}
 
 for (const reference of index) {
   test(`${reference.id}: picker path resolves its narrative and each event type`, () => {

@@ -16,8 +16,7 @@ async function start() {
   catch { throw new Error(`Cannot parse ${scenario}: expected valid JSON.`); }
   const model = buildTrajectory(doc);
   const narrativePanel = createNarrativePanel(doc, scenarioId, shortDescription);
-  element('story-panel').append(narrativePanel.element);
-  element('story-details').append(narrativePanel.detailsElement);
+  element('story-panel').append(narrativePanel.element, narrativePanel.storyElement);
   loadNarratives().then(narrativePanel.setData);
   // Draw and play each leg only from its event to the next, so the path reads as one trajectory.
   const arcs = buildContinuousArcs(model);
