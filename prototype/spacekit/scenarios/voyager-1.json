@@ -1,0 +1,39 @@
+{
+  "name": "Voyager 1 (baseline): Jupiter → Saturn",
+  "description": "Historical launch and flyby sequence; illustrative patched-conic baseline calibrated to the final heliocentric escape speed, not a reconstructed ephemeris. Dates in event ids/notes are historical annotations, not engine scheduling. See docs/analyses/voyager-baselines.md.",
+  "epoch": "1977-09-05T12:56:01Z",
+  "centralBody": "Sun",
+  "frame": "ECLIPJ2000",
+  "targetAsymptotic_km_s": 16.9,
+  "initialElements": {
+    "type": "keplerian",
+    "a": 5,
+    "e": 0.8,
+    "i": 0,
+    "raan": 0,
+    "argp": 0,
+    "nu": 0,
+    "units": {
+      "a": "AU",
+      "angles": "deg"
+    }
+  },
+  "events": [
+    {
+      "type": "gravityAssist",
+      "id": "jupiter-1979-03-05",
+      "body": "Jupiter",
+      "periapsis_km": 349000,
+      "bPlaneAngle_deg": 0,
+      "notes": "Historical Jupiter flyby: 1979-03-05. Nominal model periapsis; B-plane orientation is illustrative. No powered burn."
+    },
+    {
+      "type": "gravityAssist",
+      "id": "saturn-1980-11-12",
+      "body": "Saturn",
+      "periapsis_km": 184000,
+      "bPlaneAngle_deg": 73.224203,
+      "notes": "Historical Saturn flyby: 1980-11-12. Nominal model periapsis; B-plane orientation is illustrative. No powered burn."
+    }
+  ]
+}
