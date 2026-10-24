@@ -1,0 +1,19 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Install deps
+        run: if [ -f package.json ]; then npm install --no-audit --no-fund; fi
+      - name: Validate schema example
+        run: |
+          if [ -f prototype/spacekit/trajectory-schema.json ]; then
+            npx -y ajv-cli@5 validate --spec=draft2020 -c ajv-formats -s prototype/spacekit/trajectory-schema.json -d prototype/spacekit/schema-example.json
+          else echo "No schema yet; skipping"; fi
+      - name: Tests
+        run: |
+          if [ -f package.json ] && grep -q '"test"' package.json; then npm test; else echo "No tests yet; skipping"; fi
