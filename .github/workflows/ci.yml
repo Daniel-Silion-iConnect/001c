@@ -12,7 +12,7 @@ jobs:
       - name: Validate schema example
         run: |
           if [ -f prototype/spacekit/trajectory-schema.json ]; then
-            npx -y ajv-cli@5 validate --spec=draft2020 -c ajv-formats -s prototype/spacekit/trajectory-schema.json -d prototype/spacekit/schema-example.json
+            npx -y -p ajv-cli@5 -p ajv-formats@2 ajv validate --spec=draft2020 -c ajv-formats -s prototype/spacekit/trajectory-schema.json -d prototype/spacekit/schema-example.json
           else echo "No schema yet; skipping"; fi
       - name: Tests
         run: |
