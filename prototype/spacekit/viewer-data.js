@@ -121,6 +121,43 @@ export function speedText(vInf) {
 
 export const SPEED_TARGET_KM_S = 300;
 
+// Distances and their limits: docs/analyses/travel-time-milestones.md.
+export const CRUISE_TARGET_KM_S = 0.001 * C_KM_S;
+export const JULIAN_YEAR_S = 365.25 * 86400;
+export const LIGHT_YEAR_KM = C_KM_S * JULIAN_YEAR_S;
+export const TRAVEL_MILESTONES = Object.freeze([
+  { name: 'Pluto', distance: 39.5, unit: 'AU' },
+  { name: 'Heliopause', distance: 120, unit: 'AU' },
+  { name: 'Oort cloud · inner', distance: 2000, unit: 'AU' },
+  { name: 'Oort cloud · outer', distance: 100000, unit: 'AU' },
+  { name: 'Alpha Centauri / Proxima', distance: 4.24, unit: 'ly' },
+  { name: 'Barnard’s Star', distance: 5.96, unit: 'ly' },
+  { name: 'Wolf 359', distance: 7.86, unit: 'ly' }
+].map(Object.freeze));
+
+/** Constant-speed distance / v∞ only; null and zero have no finite cruise time. */
+export function cruiseYears(distance_km, vInf_km_s) {
+  if (!Number.isFinite(distance_km) || distance_km < 0) throw new Error('Distance must be nonnegative and finite.');
+  if (vInf_km_s !== null && (!Number.isFinite(vInf_km_s) || vInf_km_s < 0)) {
+    throw new Error('Escape speed must be null or nonnegative and finite.');
+  }
+  return vInf_km_s === null || vInf_km_s === 0 ? null : distance_km / vInf_km_s / JULIAN_YEAR_S;
+}
+
+export function buildTravelTimeRows(vInf_km_s) {
+  return TRAVEL_MILESTONES.map(milestone => {
+    const distance_km = milestone.distance * (milestone.unit === 'AU' ? AU_KM : LIGHT_YEAR_KM);
+    return { ...milestone, years: cruiseYears(distance_km, vInf_km_s),
+      targetYears: cruiseYears(distance_km, CRUISE_TARGET_KM_S) };
+  });
+}
+
+export function formatTravelYears(years) {
+  if (years === null) return '—';
+  if (!Number.isFinite(years) || years < 0) throw new Error('Time must be null or nonnegative and finite.');
+  return years < 1000 ? `${years.toFixed(1)} yr` : `${(years / 1000).toFixed(2)}k yr`;
+}
+
 /** Initial state plus the actual post-event escape speeds, including skipped steps.
  * Keep null for bound orbits: they do not have an escape asymptote.
  */

@@ -20,6 +20,16 @@ dl { margin: 22px 0 12px; }
 dd { font-size: 23px; margin: 0 0 12px; font-variant-numeric: tabular-nums; }
 #percent { font-size: 19px; color: #6de2b4; }
 #context, #summary, .muted, details { font-size: 12px; color: #9fb0c5; }
+#travel-time { margin: 24px 0; }
+#travel-time table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
+#travel-time caption { text-align: left; color: #9fb0c5; margin-bottom: 8px; }
+#travel-time th, #travel-time td { padding: 8px 3px; border-bottom: 1px solid #263448; text-align: right; vertical-align: top; }
+#travel-time th { font-weight: 500; }
+#travel-time th:first-child { width: 44%; padding-left: 0; text-align: left; overflow-wrap: anywhere; }
+#travel-time td { white-space: nowrap; font-variant-numeric: tabular-nums; }
+#travel-time thead { color: #9fb0c5; }
+#travel-time td:last-child { color: #6de2b4; }
+.milestone-distance { display: block; color: #9fb0c5; font-weight: 400; }
 .playback-controls { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: center; margin-top: 16px; }
 .playback-controls button { grid-row: span 2; }
 .playback-controls label { margin: 0; }

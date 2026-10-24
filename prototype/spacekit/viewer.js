@@ -1,6 +1,7 @@
 import { buildTrajectory, buildContinuousArcs, buildContinuousPlayback, playbackAt, speedText } from './viewer-data.js';
 import { canvasView, threeView, legColor } from './renderers.js';
 import { createSpeedPanel } from './speed-panel.js';
+import { createTravelTimePanel } from './travel-time-panel.js';
 
 const element = (id) => document.getElementById(id);
 const scenario = new URLSearchParams(location.search).get('scenario') || 'schema-example.json';
@@ -64,7 +65,7 @@ async function start() {
   };
   element('show-conics').addEventListener('change', event => view?.setShowConics(event.target.checked));
   const speedPanel = createSpeedPanel(model, select);
-  element('context').after(speedPanel.element);
+  element('context').after(speedPanel.element, createTravelTimePanel(model.result.vInf_km_s));
   element('time').max = String(playback.duration_s);
   element('time').disabled = element('play').disabled = playback.duration_s === 0;
   element('time').addEventListener('input', event => {

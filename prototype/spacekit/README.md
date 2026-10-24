@@ -37,6 +37,14 @@ tracks the selected leg's remaining gap to 300 km/s (approximately 0.1% c),
 percentage reached, and progress bar. Bound orbits contribute no escape-speed
 progress; above-target percentages remain visible while the bar caps at 100%.
 
+The **Travel time** panel compares distance / final scenario v∞ with exactly
+0.001c (299.792458 km/s) for Pluto, the heliopause, the Oort cloud edges, Proxima,
+Barnard's Star and Wolf 359. It stays tied to the loaded scenario's final result
+as you inspect other legs. Times use years or `k yr` (thousands of years); bound
+or zero-speed escape states show “—”. This cruise estimate ignores time spent
+leaving the Sun's gravity, acceleration, braking and stellar motion. See
+[milestone sources and assumptions](../../docs/analyses/travel-time-milestones.md).
+
 Press **Play** to preview all legs in sequence, **Pause** to stop, or scrub the
 **Preview time** slider (including with the keyboard) to seek while paused.
 Playback stops at the end; **Replay** starts again from the initial leg. A full
