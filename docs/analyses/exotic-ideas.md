@@ -82,6 +82,201 @@ Aiming and ionising every pellet over AU scales remains the showstopper:
 one un-ionised pellet destroys the probe. Concept F is exotic and
 speculative, TRL 2.
 
+### Pellet material (Concept F, issue #60)
+
+**Recommendation: aluminium pellets, launched on separate reflective sail chips.**
+This is a material choice for further study, not a demonstrated launcher or
+reflector. Aluminium is noncryogenic, comparatively easy to handle, and has a
+higher melting point than lithium or polyethylene. Its singly ionised plasma
+needs a larger field region than lithium's, but a smaller one than iron's.
+Use a low-absorption dielectric launch sail carrying the aluminium payload;
+an aluminium sphere alone is a poor photon sail. If the sail is discarded,
+steer it clear of the probe; if retained, include its mass and composition in
+the intercepted pellet. The baseline budgets below include only the specified
+pellet mass, with no allowance for launch sails or their disposal.
+
+All derived numbers here come from `pellet_material_comparison` and
+`pellet_launch_and_environment` in
+[`analysis/ideas_calc.py`](../../analysis/ideas_calc.py). Inputs are explicitly
+assumed where no engineering design exists. The baseline remains **10,000 ×
+0.375 g**, **3.75 kg total**, **100 km/s approach speed**, **2 kg probe**, and
+**0.8 of ideal reflected momentum**: **60 N s per pellet**, **300 km/s Δv**,
+**317.7 km/s solar v∞**. A neutral pellet carries **1.875 MJ** in the probe's
+frame; ionisation must finish upstream, with no solid core reaching the probe.
+
+**Density and ionisation.** Diameters are equivalent solid spheres,
+d = (6m/πρ)^(1/3), even when a launch package is flat. “Single” means removing
+one electron from **every separated atom**, including every C and H/D atom in
+plastic; charging a whole pellet once or making molecular ions is insufficient.
+“Full” sums **all successive atomic ionisation energies**, not just the last
+one. For each species, N = m f N_A/A and E = N e ΣI, using mass fraction f,
+molar mass A in consistent units and I in eV. These are **atomic energy floors**
+from neutral ground-state gas, excluding sublimation/vaporisation,
+dissociation, heating, radiation, recombination and source/coupling losses.
+For hydrogen, “single” and “full” both end at separated protons; this omits
+breaking H₂. Deuterium uses hydrogen's atomic ionisation energy as an
+approximation. Deuteration offers no assumed fusion gain.
+
+| Material at the stated phase | Density (g/cm³) | Diameter at 0.375 g (mm) | Single (kJ/pellet) | Full (MJ/pellet) |
+|---|---:|---:|---:|---:|
+| Lithium, solid | 0.534 | 11.028 | 28.110 | 1.0609 |
+| Aluminium, solid | 2.699 | 6.426 | 8.027 | 8.8572 |
+| Polyethylene hydrocarbon, CH₂ reference grade | 0.890 | 9.301 | 99.201 | 2.7274 |
+| Deuterated polyethylene, CD₂, estimated density | 1.01768 | 8.895 | 86.755 | 2.3852 |
+| Coated iron: 95% Fe core + 5% Al shell by mass | 7.18517 | 4.637 | 5.265 | 21.7512 |
+| Frozen H₂, near triple point | 0.08659 | 20.223 | 488.143 | 0.4881 |
+| Frozen Ne, near triple point | 1.444 | 7.916 | 38.665 | 6.2964 |
+
+Densities and metallic melting points are from the PDG material tables:
+[lithium](https://pdg.lbl.gov/2024/AtomicNuclearProperties/HTML/lithium_Li.html),
+[aluminium](https://pdg.lbl.gov/2024/AtomicNuclearProperties/HTML/aluminum_Al.html),
+[iron](https://pdg.lbl.gov/2024/AtomicNuclearProperties/HTML/iron_Fe.html), and
+[polyethylene](https://pdg.lbl.gov/2020/AtomicNuclearProperties/HTML/polyethylene.html).
+The polymer grade matters: CD₂ density is **estimated** by multiplying the CH₂
+density by its repeat-mass ratio at unchanged volume, not taken as a measured
+material constant. The iron mixture assumes additive volumes; its Al shell
+is **107.80 μm** thick. Frozen-H₂ density is from
+[NBS Report 9796, §2.4](https://ntrs.nasa.gov/api/citations/19720005708/downloads/19720005708.pdf);
+frozen-Ne density is the solid value used in
+[CoolProp's melting-line correlation](https://coolprop.org/fluid_properties/fluids/Neon.html#melting-line),
+not the liquid density. Ionisation inputs are tabulated stage by stage in
+[NIST ASD 5.12](https://physics.nist.gov/PhysRefData/ASD/ionEnergy.html):
+[Li](https://physics.nist.gov/cgi-bin/ASD/ie.pl?at_num_out=on&biblio=on&e_out=0&el_name_out=on&format=1&level_out=on&seq_out=on&shells_out=on&spectra=Li&unc_out=on&units=1),
+[C](https://physics.nist.gov/cgi-bin/ASD/ie.pl?at_num_out=on&biblio=on&e_out=0&el_name_out=on&format=1&level_out=on&seq_out=on&shells_out=on&spectra=C&unc_out=on&units=1),
+[Ne](https://physics.nist.gov/cgi-bin/ASD/ie.pl?at_num_out=on&biblio=on&e_out=0&el_name_out=on&format=1&level_out=on&seq_out=on&shells_out=on&spectra=Ne&unc_out=on&units=1),
+[Al](https://physics.nist.gov/cgi-bin/ASD/ie.pl?at_num_out=on&biblio=on&e_out=0&el_name_out=on&format=1&level_out=on&seq_out=on&shells_out=on&spectra=Al&unc_out=on&units=1),
+[Fe](https://physics.nist.gov/cgi-bin/ASD/ie.pl?at_num_out=on&biblio=on&e_out=0&el_name_out=on&format=1&level_out=on&seq_out=on&shells_out=on&spectra=Fe&unc_out=on&units=1).
+Hydrogen's threshold is from [NIST's elemental data](https://physics.nist.gov/cgi-bin/Elements/elInfo.pl?context=frames&element=1);
+deuterium mass is from [PDG](https://pdg.lbl.gov/2024/AtomicNuclearProperties/HTML/deuterium_liquid.html),
+and physical constants are from [NIST CODATA](https://physics.nist.gov/cuu/Constants/index.html). Values checked
+2026-10-24; extra output digits support reproduction, not engineering precision.
+
+**Survival: laser launch, sunlight and ablation.** For a freely rotating,
+isothermal sphere with equal solar absorptivity and thermal emissivity,
+T = [S/(4σr²)]^(1/4). Taking
+[NASA's 1 AU irradiance](https://earth.gsfc.nasa.gov/climate/projects/solar-irradiance/science)
+S = 1361 W/m² gives **278.3 K at 1 AU**, **124.5 K at 5 AU**
+(**54.44 W/m²** there). Actual T scales with (absorptivity/emissivity)^(1/4);
+coatings, orientation, transient heating and sublimation change these estimates.
+They are not survival guarantees or a sublimation-lifetime calculation.
+
+| Material | Launch and coast assessment (inference from the phase/thermal constraints) |
+|---|---|
+| Lithium | Melts at **453.6 K**; requires protection from air/moisture in manufacture. Low absorption and a separate launch sail are essential. Ordinary coast sunlight is less demanding than the launch beam, but heating or asymmetric ablation can melt, fragment or deflect it. |
+| Aluminium | Melts at **933.5 K** and is noncryogenic. A passivated payload is the practical baseline; a native oxide and any coating still require an extra ionisation/ablation budget. Separate the optical sail from the pellet's thermal design. Ablating only the surface leaves a lethal neutral core. |
+| CH₂ / CD₂ | The ideal equilibrium melting point of polyethylene is **414.6 K**; actual grades soften/melt differently. Laser absorption can decompose, outgas or ablate it and change its aim. A separate reflective carrier helps; deuteration does not solve the thermal limit. Coast temperatures may be acceptable if optical properties allow, but UV degradation and mass loss need measurement. |
+| Coated Fe | Iron melts at **1811 K**, but ferromagnetism disappears near **1043 K**; the assumed aluminium shell melts first. The coating can reduce absorption/oxidation, with measured optical properties still required. A cool core helps coilgun coupling; hot ionised iron has no useful bulk ferromagnetism. Complete core vaporisation is harder to guarantee than surface flash-off. |
+| Frozen H₂ | Triple point **13.8033 K**: the grey-sphere estimate at 5 AU is far too warm. Needs shielding/refrigeration or a quantified short-flight sublimation budget. Direct laser heating and recoil from boil-off are especially problematic; weak solar absorption alone does not establish a lifetime. |
+| Frozen Ne | Triple point **24.56 K**: also cryogenic far below the grey estimate. Chemically inert, but laser heating, sublimation and cryogenic containment remain penalties. A sacrificial shell adds mass and another plasma species. |
+
+For phase references see the PDG links above,
+[NIST polyethylene data](https://srd.nist.gov/JPCRD/jpcrd178.pdf),
+[NIST iron thermal data](https://srd.nist.gov/jpcrdreprint/1.3253100.pdf), and
+[ITS-90 hydrogen fixed point](https://www.nist.gov/si-redefinition/kelvin/kelvin-its-90)
+/ [NIST neon phase data](https://webbook.nist.gov/cgi/cbook.cgi?ID=C7440019&Mask=4).
+A launch sail's thermal balance is distinct from a coasting sphere:
+T = [αI/(2εσ)]^(1/4) for equal emission from both faces. An **illustrative**
+I = 1 GW/m², α = 10⁻⁵, ε = 0.5 per face gives **648 K**. This already exceeds
+the Li and polymer limits if thermally coupled to them. These are assumed
+optical properties, not properties asserted for aluminium. Beam stability,
+attachment loads and heat transfer still need design; see the experimental
+and modelling context in
+[the flexible lightsail study](https://www.nature.com/articles/s41467-024-47476-1).
+
+**Magnetic reflection is a plasma problem.** With ion mass A u and charge z e,
+r_L = A u w/(z e B). The following compares **100 km/s** transverse motion in a
+**local 10 mT field**, not a specified sail coil or its field at large distance.
+Each entry lists the singly charged state followed by the bare nucleus.
+
+| Material / ion species | A/z (u per elementary charge), single → full | r_L (m), single → full | Self-collision mean free path (m), singly charged example below |
+|---|---|---|---|
+| Li | 6.940 → 2.313 | 0.719 → 0.240 | 0.371 |
+| Al | 26.982 → 2.076 | 2.796 → 0.215 | 1.443 |
+| CH₂: C; H | 12.011 → 2.002; 1.008 → 1.008 | 1.245 → 0.207; 0.104 → 0.104 | 0.750; 0.375 |
+| CD₂: C; D | 12.011 → 2.002; 2.014 → 2.014 | 1.245 → 0.207; 0.209 → 0.209 | 0.858; 0.429 |
+| Fe core; Al shell | 55.845 → 2.148; 26.982 → 2.076 | 5.788 → 0.223; 2.796 → 0.215 | 3.144; 28.862 |
+| H₂: H | 1.008 → 1.008 | 0.104 → 0.104 | 0.054 |
+| Ne | 20.180 → 2.018 | 2.091 → 0.209 | 1.079 |
+
+The collision column assumes the entire pellet is uniformly expanded into a
+**10 m radius** sphere, **T_i = 10 eV**, **ln Λ = 10**, **z = 1**. With
+n_i = N_i/(4πR³/3), use the thermal ion self-collision estimate
+ν_ii = 4.80×10⁻⁸ z⁴ n_i ln Λ/(√μ T_i^(3/2)) s⁻¹, with n_i in cm⁻³ and
+μ = m_i/m_proton, from the
+[2023 NRL Plasma Formulary, pp. 28–29](https://homepage.physics.uiowa.edu/~ghowes/teach/phys4731/resources/NRL_Plasma_Formulary_2023.pdf).
+Here the quoted path is explicitly defined as √(2kT_i/m_i)/ν_ii. Mixture
+entries include **only self-collisions** at each constituent's density;
+cross-species collisions and ion–neutral charge exchange are not calculated.
+Neither the cloud size nor its temperature is predicted by an ablation model.
+The directed approach energy is not the random thermal temperature.
+
+For Al this gives n_i ≈ **1.998×10¹² cm⁻³**, ν_ii ≈ **5.86×10³ s⁻¹**, and a
+path shorter than the cloud: independent particle orbits are not sufficient.
+At **100 m radius**, density and rate fall by the volume ratio, giving
+**1.998×10⁹ cm⁻³**, **5.86 s⁻¹**, and a **1443 m** path at the same assumed
+charge/temperature. Dilution can reduce collisions, but demands capture of
+a much wider cloud; a real coil's field also falls with distance. At fixed
+n_i and T_i the rate scales as z⁴; the bare-nucleus radii do not imply an
+otherwise unchanged, collisionless, fully stripped cloud.
+
+The 10 m example has **895 Pa** directed ram pressure ρw², versus only
+**39.79 Pa** magnetic pressure B²/(2μ₀) at 10 mT, over a **0.200 ms** cloud
+crossing. This is a warning that the field must withstand the pulse; these
+illustrative dimensions are **not a reflector design**. Collective electric
+fields, field exclusion, electron coupling, recombination, neutrals,
+geometry and pulse heating determine actual capture and reflection. Small
+ion gyroradii help; they do not establish a magnetic mirror loss cone or a
+reflection efficiency. A magnetic mirror along converging field lines also
+needs a suitable pitch angle, whereas a transverse field can bend particles.
+[Particle simulations of magnetic sails](https://www.jstage.jst.go.jp/article/jsts/20/2/20_2_26/_article)
+show why ion orbit size relative to the interaction region matters.
+
+Thus Li⁺ and H⁺ turn most tightly, Al⁺ and Ne⁺ are intermediate, Fe⁺ needs the
+largest region, and CH₂/CD₂ fragments have different orbits. The light species
+also have higher thermal self-collision rates in this equal-mass, equal-volume
+example; **no material earns an assumed 80% from these estimates**. Full
+stripping makes the heavier species' A/z similar, at substantial energy cost.
+A cold ferromagnetic core is useful to a launcher, not a substitute for
+ionisation at the probe. The recommended Al plasma need not be fully stripped,
+but its neutral fraction and charge distribution must be controlled.
+
+**Launch scheme and chirp.** In the existing simplified launcher frame,
+v_launch = v_probe + w: as the probe gains **0–300 km/s**, launch speeds rise
+approximately **100–400 km/s**. Schedule these speeds against the **arrival**
+state, including flight time and solar dynamics in a future delivery solution;
+this arithmetic is not a solved firing schedule from Earth to 5 AU.
+Per-pellet launch KE spans **1.875–30.000 MJ**, and its midpoint sum is
+**131.25 GJ**. This excludes the initial heliocentric speed, sail mass,
+launcher inefficiency, ionisation and heating.
+
+- **Laser-driven sail chips (recommended baseline to investigate):** accelerate
+  a reflective carrier with the Al pellet attached. Do not focus launch light
+  onto the bare pellet and expect it to stay intact. For a single-pass,
+  perfectly reflecting sail, momentum requires E_light ≈ m c v_launch/2 at
+  these nonrelativistic speeds: **5.621–22.485 GJ per pellet**, or **140.531 TJ**
+  over the chirped stream. The **131.25 GJ is pellet KE, not laser input**.
+  Power, aperture, pointing, optical properties, carrier mass and separation
+  can only worsen that ideal budget; photon recycling would be a different
+  architecture. Ablative launch can change the photon-momentum limit by
+  expelling reaction mass, but must budget that propellant, lost pellet mass
+  and recoil errors separately.
+- **Coilgun alternative:** an Fe core couples ferromagnetically while cool;
+  conducting Al can instead use an induction launcher, with eddy-current
+  heating and switching constraints. At an assumed constant **10,000 g**,
+  L = v²/(2a) gives **50.99–815.77 km** of acceleration length for the speed
+  range. This is geometry, not an achievable launcher specification. Core
+  saturation, pulse timing, structural stress and heating remain unmodelled;
+  neither route is demonstrated at the required speeds.
+
+Near arrival, a separate timed beam must vaporise/dissociate and ionise the
+**whole** pellet upstream, allow a controlled plasma plume to form, and keep
+it charged until the probe's field bends it backward. Its momentum goes into
+the field source and hence the probe; a static magnetic field does not supply
+the launch energy. Reject or divert any incompletely ionised shot. Aluminium
+is the recommended compromise for handling and survival, with manageable
+first-ionisation energy and intermediate A/z; **launching, aiming, creating
+and reflecting every plasma pulse remains the TRL 2 showstopper**.
+
 ## Seeded idea 1: antimatter
 - 1 kg at 300 km/s carries 4.5×10¹⁰ J. A beamed-core engine (v_e ≈ 0.33c, η ≈ 0.1 to jet) needs ~**2.5 mg** of antiprotons, a tiny propellant fraction.
 - Production: ~10 ng/yr worldwide (CERN AD/ELENA) → 2.5×10⁵ years. Storage: ~10³ trapped anti-H atoms or ~10⁵ p̄ for months in Penning traps.

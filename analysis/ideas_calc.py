@@ -104,6 +104,164 @@ print(f"  dv={kms(dv):.1f}  vesc(5AU)={kms(vesc5):.2f}  gravity loss<={kms(dg):.
 E = pellets['launchEnergy_J']
 print(f"  pellet launch KE ~{E/1e9:.0f} GJ (agent ~150)")
 
+# Material inputs: NIST ASD 5.12 successive ground-state ionisation energies
+# (eV), PDG atomic masses/densities, and NBS solid-H2 density. Source links,
+# phase conventions and the deliberately assumed geometries are in the docs.
+ELEMENTS = {
+    "H": {"A": 1.00794, "rho": 0.08659, "ie": (13.5984346,)},
+    "D": {"A": 2.014101778, "ie": (13.5984346,)},  # H IE approximation
+    "Li": {"A": 6.94, "rho": 0.534, "ie": (5.391714996, 75.6400970, 122.45435913)},
+    "C": {"A": 12.0107, "ie": (11.2602880, 24.383143, 47.88778,
+                                       64.49352, 392.09056, 489.99320779)},
+    "Ne": {"A": 20.1797, "rho": 1.444, "ie": (21.564541, 40.96297, 63.4233,
+        97.1900, 126.247, 157.934, 207.271, 239.0970, 1195.8082, 1362.199256)},
+    "Al": {"A": 26.9815385, "rho": 2.699, "ie": (5.985769, 18.82855, 28.447642,
+        119.9924, 153.8252, 190.49, 241.76, 284.64, 330.21, 398.65, 442.005,
+        2085.97693, 2304.140359)},
+    "Fe": {"A": 55.845, "rho": 7.874, "ie": (7.9024681, 16.19921, 30.651,
+        54.91, 75.00, 98.985, 124.9671, 151.060, 233.6, 262.10, 290.9, 330.8,
+        361.0, 392.2, 456.2, 489.312, 1262.7, 1357.8, 1460, 1575.6, 1687.0,
+        1798.4, 1950.4, 2045.759, 8828.1864, 9277.6886)},
+}
+E_CHARGE = 1.602176634e-19  # exact J/eV and C
+N_AVOGADRO = 6.02214076e23  # exact mol^-1
+PROTON_MASS_KG = 1.67262192595e-27  # CODATA 2022, NRL mu = ion/proton mass
+ATOMIC_MASS_KG = 1e-3 / N_AVOGADRO  # sufficient at tabulated precision
+SIGMA_SB = 5.670374419e-8
+MU0 = 1.25663706212e-6
+SOLAR_FLUX_W_M2 = 1361.0
+
+
+def pellet_material_comparison(mass_kg=0.000375, relative_velocity_km_s=100,
+                               field_T=0.01, cloud_radius_m=10,
+                               temperature_eV=10, coulomb_log=10):
+    """Atomic energy floors and illustrative plasma scales, not efficiencies.
+
+    Single = one electron removed from EVERY separated atom (not one charge
+    on a solid pellet or polymer repeat). Full = sum of all successive IEs.
+    Neither includes atomisation, heating, radiation or coupling losses.
+    Mixture collision rates are same-species Maxwellian estimates only;
+    cross-species scattering, recombination and collective dynamics are absent.
+    Cloud temperature is random thermal motion, not the directed 100 km/s.
+    """
+    for value in (mass_kg, relative_velocity_km_s, field_T, cloud_radius_m,
+                  temperature_eV, coulomb_log):
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError("material comparison inputs must be finite and positive")
+    # PE density is the PDG reference grade; CD2 assumes unchanged repeat volume.
+    ch2_mass = ELEMENTS['C']['A'] + 2 * ELEMENTS['H']['A']
+    cd2_mass = ELEMENTS['C']['A'] + 2 * ELEMENTS['D']['A']
+    materials = {
+        'lithium': (ELEMENTS['Li']['rho'], {'Li': 1.0}),
+        'aluminium': (ELEMENTS['Al']['rho'], {'Al': 1.0}),
+        'polyethylene CH2': (0.890, {'C': ELEMENTS['C']['A'] / ch2_mass,
+                                    'H': 2 * ELEMENTS['H']['A'] / ch2_mass}),
+        'deuterated polyethylene CD2': (0.890 * cd2_mass / ch2_mass,
+            {'C': ELEMENTS['C']['A'] / cd2_mass, 'D': 2 * ELEMENTS['D']['A'] / cd2_mass}),
+        'coated iron': (1 / (0.95 / ELEMENTS['Fe']['rho'] + 0.05 / ELEMENTS['Al']['rho']),
+                        {'Fe': 0.95, 'Al': 0.05}),
+        'frozen hydrogen H2': (ELEMENTS['H']['rho'], {'H': 1.0}),
+        'frozen neon': (ELEMENTS['Ne']['rho'], {'Ne': 1.0}),
+    }
+    w = relative_velocity_km_s * 1e3
+    volume = 4 * math.pi * cloud_radius_m**3 / 3
+    rows = {}
+    for name, (density, fractions) in materials.items():
+        diameter = (6 * mass_kg / (math.pi * density * 1000))**(1 / 3)
+        components = {}
+        single = full = 0.0
+        for symbol, fraction in fractions.items():
+            atom = ELEMENTS[symbol]
+            ion_mass = atom['A'] * ATOMIC_MASS_KG
+            count = mass_kg * fraction / ion_mass
+            single += count * atom['ie'][0] * E_CHARGE
+            full += count * sum(atom['ie']) * E_CHARGE
+            density_cm3 = count / volume / 1e6
+            # NRL formulary ion-ion thermal rate, Z=1, T_i in eV, n_i in cm^-3.
+            rate = 4.80e-8 * density_cm3 * coulomb_log / (
+                math.sqrt(ion_mass / PROTON_MASS_KG) * temperature_eV**1.5)
+            thermal_speed = math.sqrt(2 * temperature_eV * E_CHARGE / ion_mass)
+            components[symbol] = {
+                'massFraction': fraction, 'atomCount': count,
+                'singleIonisation_eV': atom['ie'][0], 'fullIonisation_eV': sum(atom['ie']),
+                'massToChargeSingle_u_e': atom['A'],
+                'massToChargeFull_u_e': atom['A'] / len(atom['ie']),
+                'gyroradiusSingle_m': ion_mass * w / (E_CHARGE * field_T),
+                'gyroradiusFull_m': ion_mass * w / (len(atom['ie']) * E_CHARGE * field_T),
+                'directedEnergy_eV': 0.5 * ion_mass * w**2 / E_CHARGE,
+                'ionDensity_cm3': density_cm3, 'selfCollisionRate_s1': rate,
+                'thermalMeanFreePath_m': thermal_speed / rate,
+            }
+        row = {'density_g_cm3': density, 'diameter_mm': diameter * 1000,
+               'singleIonisation_J': single, 'fullIonisation_J': full,
+               'components': components}
+        if name == 'coated iron':
+            core_diameter = (6 * mass_kg * 0.95 / (math.pi * ELEMENTS['Fe']['rho'] * 1000))**(1 / 3)
+            row['coatingThickness_um'] = (diameter - core_diameter) * 0.5e6
+        rows[name] = row
+    return rows
+
+
+def pellet_launch_and_environment(mass_kg=0.000375, pellet_count=10000,
+                                 relative_velocity_km_s=100,
+                                 momentum_efficiency=0.8, probe_mass_kg=2):
+    """Concept F's ideal frame plus explicitly chosen thermal/launcher examples.
+
+    Photon energy assumes single-pass perfect reflection, m*c*v/2, to first
+    order in v/c. It is not the pellet kinetic energy. Coilgun length assumes
+    constant 10,000 g; no engineering performance is implied.
+    """
+    ref = chirped_pellet_stream(mass_kg, pellet_count, relative_velocity_km_s,
+                               momentum_efficiency, probe_mass_kg)
+    w = relative_velocity_km_s * 1e3
+    dv = ref['deltaV_km_s'] * 1e3
+    mass = ref['totalPelletMass_kg']
+    # A sphere radiates over four times its projected absorbing area.
+    temperatures = {str(r): (SOLAR_FLUX_W_M2 / (4 * SIGMA_SB * r**2))**0.25
+                    for r in (1, 5)}
+    # Illustrative dielectric launch sail: per-face emissivity 0.5,
+    # absorptivity 1e-5 and incident intensity 1 GW/m^2, two radiating faces.
+    sail_temperature = (1e-5 * 1e9 / (2 * 0.5 * SIGMA_SB))**0.25
+    return {
+        **ref, 'relativeKEPerPellet_J': 0.5 * mass_kg * w**2,
+        'relativeKEStream_J': 0.5 * mass * w**2,
+        'impulsePerPellet_N_s': 2 * momentum_efficiency * mass_kg * w,
+        'launchSpeedRange_km_s': [kms(w), kms(w + dv)],
+        'launchKEEndpoint_J': [0.5 * mass_kg * v**2 for v in (w, w + dv)],
+        'singlePassPhotonEnergy_J': mass * c * (w + dv / 2) / 2,
+        'singlePassPhotonEnergyPerPelletEndpoints_J': [mass_kg * c * v / 2 for v in (w, w + dv)],
+        'coilgunLengthEndpoints_km': [v**2 / (2 * 1e4 * G0) / 1000 for v in (w, w + dv)],
+        'greySphereTemperature_K': temperatures,
+        'fiveAUFlux_W_m2': SOLAR_FLUX_W_M2 / 5**2,
+        'illustrativeSailTemperature_K': sail_temperature,
+        'tenMetreCloudRamPressure_Pa': mass_kg / (4 * math.pi * 10**3 / 3) * w**2,
+        'tenMilliTeslaPressure_Pa': 0.01**2 / (2 * MU0),
+        'tenMetreCloudCrossing_s': 2 * 10 / w,
+        'phaseTemperatures_K': {'Li_melt': 453.6, 'Al_melt': 933.5,
+            'Fe_melt': 1811, 'Fe_Curie': 1043, 'PE_equilibrium_melt': 414.6,
+            'H2_triple': 13.8033, 'Ne_triple': 24.56},
+    }
+
+
+print("\n== Concept F: pellet materials (issue #60) ==")
+for name, row in pellet_material_comparison().items():
+    print(f"  {name}: rho={row['density_g_cm3']:.5f} g/cm^3, d={row['diameter_mm']:.3f} mm, "
+          f"single={row['singleIonisation_J']/1000:.3f} kJ, full={row['fullIonisation_J']/1e6:.4f} MJ")
+    for symbol, component in row['components'].items():
+        print(f"    {symbol}: A/q={component['massToChargeSingle_u_e']:.4f} -> "
+              f"{component['massToChargeFull_u_e']:.4f} u/e; r_L(10 mT,100 km/s)="
+              f"{component['gyroradiusSingle_m']:.3f} -> {component['gyroradiusFull_m']:.3f} m; "
+              f"n_i={component['ionDensity_cm3']:.3e} cm^-3, nu_ii={component['selfCollisionRate_s1']:.3e} /s, "
+              f"thermal mfp={component['thermalMeanFreePath_m']:.3f} m (R=10 m,T_i=10 eV,Z=1)")
+    if 'coatingThickness_um' in row:
+        print(f"    Al shell thickness={row['coatingThickness_um']:.2f} um (5% of total mass)")
+launch_material = pellet_launch_and_environment()
+for key, value in launch_material.items():
+    print(f"  {key}: {value}")
+al_dilute = pellet_material_comparison(cloud_radius_m=100)['aluminium']['components']['Al']
+print(f"  Al cloud R=100 m: n={al_dilute['ionDensity_cm3']:.3e} cm^-3, "
+      f"nu_ii={al_dilute['selfCollisionRate_s1']:.3f} /s, thermal mfp={al_dilute['thermalMeanFreePath_m']:.1f} m")
+
 print("\n== Codex: Solar-Wind Bank Shot ==")
 U, vi, Lam, th = 400e3, 30e3, 10.0, math.pi / 3
 wf = (U - vi) * math.exp(-th / Lam)

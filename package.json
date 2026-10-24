@@ -4,7 +4,7 @@
   "type": "module",
   "description": "0.001c probe mission design prototypes",
   "scripts": {
-    "test": "node scripts/validate-schema.mjs && node scripts/validate-schema.mjs prototype/spacekit/scenarios/scenario-*.json prototype/spacekit/scenarios/voyager-*.json && node --test tests/trajectory-schema.test.mjs prototype/spacekit/engine.test.js prototype/spacekit/viewer-data.test.js prototype/spacekit/scenarios.test.js prototype/spacekit/narrative-panel.test.js prototype/spacekit/disclosure-card.test.js prototype/spacekit/renderers.test.js"
+    "test": "node scripts/validate-schema.mjs && node scripts/validate-schema.mjs prototype/spacekit/scenarios/scenario-*.json prototype/spacekit/scenarios/voyager-*.json && node --test tests/trajectory-schema.test.mjs tests/pellet-material.test.mjs prototype/spacekit/engine.test.js prototype/spacekit/viewer-data.test.js prototype/spacekit/scenarios.test.js prototype/spacekit/narrative-panel.test.js prototype/spacekit/disclosure-card.test.js prototype/spacekit/renderers.test.js"
   },
   "engines": { "node": ">=18" },
   "devDependencies": {
