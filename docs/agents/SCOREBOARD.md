@@ -39,3 +39,9 @@ Process notes: Codex `--sandbox danger-full-access` inside a worktree fixes the 
 | #28 | Antigravity (opus spillover) → Codex | continuous arcs + mobile labels | 9 | 7 | 9 | 25 | Opus hit its quota (429) after the helpers/tests; Codex finished it with mobile-readable labels |
 
 Process notes: Antigravity's opus quota ran out after ~2 tasks (reset ~4.5 h). Codex full-access remains the most reliable coder.
+
+## Round 6 (2026-10-24)
+
+| PR | Agent | Task | Correct (10) | Autonomy (10) | Quality (10) | Total | Notes |
+|----|-------|------|---|---|---|---|-------|
+| #31 | Codex (gpt-6.1-sol high, full-access) | travel-time panel | 10 | 10 | 10 | 30 | Constants and spot checks correct; mobile-readable; sources doc; ~5 min |
