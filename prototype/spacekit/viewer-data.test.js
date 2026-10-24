@@ -43,14 +43,16 @@ test('cruise times use final scenario speed and preserve bound and zero escape c
   for (const distance of [-1, NaN, Infinity]) assert.throws(() => cruiseYears(distance, 10), /Distance/);
 });
 
-test('travel times format years, thousands of years, and missing asymptotes', () => {
+test('travel times use readable years, three significant figures for long trips, and millions', () => {
   assert.equal(formatTravelYears(null), '—');
-  assert.equal(formatTravelYears(0), '0.0 yr');
-  assert.equal(formatTravelYears(0.62458), '0.6 yr');
-  assert.equal(formatTravelYears(999), '999.0 yr');
-  assert.equal(formatTravelYears(1000), '1.00k yr');
-  assert.equal(formatTravelYears(4240), '4.24k yr');
-  assert.equal(formatTravelYears(100000), '100.00k yr');
+  for (const [years, text] of [
+    [0, '0 yr'], [0.62458, '0.6 yr'], [48, '48 yr'], [48.16, '48.2 yr'],
+    [999, '999 yr'], [999.94, '999.9 yr'], [999.99, '1,000 yr'],
+    [1000, '1,000 yr'], [1004, '1,000 yr'], [1005, '1,010 yr'],
+    [4240, '4,240 yr'], [6471, '6,470 yr'], [11990, '12,000 yr'],
+    [100000, '100,000 yr'], [999499, '999,000 yr'], [999500, '1 million yr'],
+    [1000000, '1 million yr'], [1200000, '1.2 million yr'], [1234567, '1.23 million yr']
+  ]) assert.equal(formatTravelYears(years), text, `${years} years`);
   for (const value of [-1, NaN, Infinity]) assert.throws(() => formatTravelYears(value), /Time/);
 });
 

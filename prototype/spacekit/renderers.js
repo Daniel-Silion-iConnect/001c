@@ -41,21 +41,37 @@ function sceneLabels(host, centralBody, referenceOrbits) {
   layer.append(marker);
   const annotations = [
     { text: centralBody, position: [0, 0, 0], body: true },
-    ...referenceOrbits.map(ref => ({ text: `${ref.name} ${ref.radius_AU} AU`, position: [0, ref.radius_AU, 0] }))
+    // A fixed 315° point lies on each ring in both projections.
+    ...referenceOrbits.map(ref => ({ text: `${ref.name} ${ref.radius_AU} AU`,
+      position: [ref.radius_AU * Math.SQRT1_2, -ref.radius_AU * Math.SQRT1_2, 0] }))
   ].map(annotation => {
+    let anchor, leader;
+    if (!annotation.body) {
+      anchor = document.createElement('span'); anchor.className = 'orbit-anchor';
+      leader = document.createElement('span'); leader.className = 'orbit-leader';
+      anchor.setAttribute('aria-hidden', 'true'); leader.setAttribute('aria-hidden', 'true');
+      layer.append(leader, anchor);
+    }
     const label = document.createElement('span');
     label.className = `scene-label${annotation.body ? ' body-label' : ''}`;
     label.textContent = annotation.text; layer.append(label);
-    return { ...annotation, label };
+    return { ...annotation, label, anchor, leader };
   });
   host.append(layer);
   return {
     update(screen) {
       // Leave room for the renderer instructions along the bottom of the plot.
       const placed = [{ x: 0, y: host.clientHeight - 64, width: host.clientWidth, height: 64 }];
-      for (const { label, position, body } of annotations) {
-        const [px, py, visible = true] = screen(position);
+      const projected = annotations.map(annotation => {
+        const [px, py, inFront = true] = screen(annotation.position);
+        const visible = inFront && px >= 0 && px <= host.clientWidth && py >= 0 && py <= host.clientHeight;
+        // Keep every ring's anchor clear of text, including labels for the other rings.
+        if (visible && annotation.anchor) placed.push({ x: px - 4, y: py - 4, width: 8, height: 8 });
+        return { ...annotation, px, py, visible };
+      });
+      for (const { label, body, anchor, leader, px, py, visible } of projected) {
         label.hidden = !visible;
+        if (anchor) { anchor.hidden = !visible; leader.hidden = !visible; }
         if (body) {
           marker.hidden = !visible;
           marker.style.left = `${px}px`; marker.style.top = `${py}px`;
@@ -64,7 +80,7 @@ function sceneLabels(host, centralBody, referenceOrbits) {
         if (!visible) continue;
         const width = label.offsetWidth, height = label.offsetHeight;
         const x = Math.max(4, Math.min(host.clientWidth - width - 4, px + 13));
-        const preferredY = py + (body ? -34 : 12);
+        const preferredY = py - (body ? 34 : height / 2);
         let y = 4;
         // Labels near the Sun can be closer than a text line when fitting a 30 AU path.
         // Search above and below the anchor, also when the orbit is near a plot edge.
@@ -75,6 +91,15 @@ function sceneLabels(host, centralBody, referenceOrbits) {
             && y < p.y + p.height + 4 && y + height + 4 > p.y)) break;
         }
         label.style.left = `${x}px`; label.style.top = `${y}px`;
+        if (anchor) {
+          // Text may move to avoid other annotations; its leader always starts on the ring.
+          anchor.style.left = leader.style.left = `${px}px`;
+          anchor.style.top = leader.style.top = `${py}px`;
+          const dx = Math.max(x, Math.min(x + width, px)) - px;
+          const dy = Math.max(y, Math.min(y + height, py)) - py;
+          leader.style.width = `${Math.hypot(dx, dy)}px`;
+          leader.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+        }
         placed.push({ x, y, width, height });
       }
       return placed;
