@@ -1,27 +1,28 @@
-// Scenario picker: lists schema-example.json plus scenarios/index.json and reloads the
-// viewer with ?scenario=<path>. Kept separate from viewer.js, which owns loading/HUD.
-export const DEFAULT_SCENARIO = 'schema-example.json';
+// The index is ordered by engine-computed final v∞ descending (checked in tests).
+// Its first entry supplies the default for both the picker and the viewer.
 export const SCENARIO_INDEX = 'scenarios/index.json';
 
-/** Picker options ({ value, label, title }) for an index.json array; the default comes first. */
+/** Picker options ({ value, label, title }) in index order. */
 export function pickerOptions(index) {
   if (!Array.isArray(index)) throw new Error(`${SCENARIO_INDEX} must be an array.`);
-  return [
-    { value: DEFAULT_SCENARIO, label: 'Sample trajectory (schema example)', title: 'Event vocabulary example' },
-    ...index.map(entry => ({ value: `scenarios/${entry.file}`, label: entry.name, title: entry.summary ?? '' }))
-  ];
+  return index.map(entry => ({ value: `scenarios/${entry.file}`, label: entry.name, title: entry.summary ?? '' }));
 }
 
-async function mountPicker() {
+export function selectScenario(options, search) {
+  const current = new URLSearchParams(search).get('scenario') || options[0]?.value;
+  if (!current) throw new Error('No reference scenarios available. Enter a Scenario JSON path.');
+  return current;
+}
+
+export async function mountPicker() {
   const select = document.getElementById('picker');
   const input = document.getElementById('scenario');
-  if (!select || !input) return;
-  const current = new URLSearchParams(location.search).get('scenario') || DEFAULT_SCENARIO;
-  let options = pickerOptions([]);
+  let options = [];
   try {
     const response = await fetch(SCENARIO_INDEX);
     if (response.ok) options = pickerOptions(await response.json());
-  } catch { /* Offline or file:// — keep the default entry only. */ }
+  } catch { /* Explicit custom paths remain usable when the index is unavailable. */ }
+  const current = selectScenario(options, location.search);
   if (!options.some(option => option.value === current)) {
     options.push({ value: current, label: `Custom: ${current}`, title: current });
   }
@@ -31,10 +32,10 @@ async function mountPicker() {
     select.append(option);
   }
   select.value = current;
+  input.value = current;
   select.addEventListener('change', () => {
     input.value = select.value;
     input.form.requestSubmit();
   });
+  return current;
 }
-
-if (typeof document !== 'undefined') mountPicker();

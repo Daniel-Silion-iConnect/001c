@@ -1,5 +1,11 @@
 [
   {
+    "id": "concept-c-baseline",
+    "name": "Concept C (baseline): Tether network + STP Oberth",
+    "file": "scenario-c.json",
+    "summary": "45 km/s inbound plunge, 24 km/s solar-thermal burn at 3.5 R_sun (v∞ 136.36 km/s) plus 15 speculative CNT tethers × 4 km/s; doc reference 196.36 km/s (6.55e-4 c)."
+  },
+  {
     "id": "concept-a-baseline",
     "name": "Concept A (baseline): Chemical + Solar Oberth + tether chain",
     "file": "scenario-a.json",
@@ -12,9 +18,15 @@
     "summary": "6 km/s kick at 10 R_sun followed by a β = 0.25 radial sail; engine hybrid v∞ 107.56 km/s (3.59e-4 c)."
   },
   {
-    "id": "concept-c-baseline",
-    "name": "Concept C (baseline): Tether network + STP Oberth",
-    "file": "scenario-c.json",
-    "summary": "45 km/s inbound plunge, 24 km/s solar-thermal burn at 3.5 R_sun (v∞ 136.36 km/s) plus 15 speculative CNT tethers × 4 km/s; doc reference 196.36 km/s (6.55e-4 c)."
+    "id": "voyager-1",
+    "name": "Voyager 1 (baseline): Jupiter → Saturn",
+    "file": "voyager-1.json",
+    "summary": "Historical flyby sequence; illustrative unpowered patched-conic baseline calibrated to v∞ 16.9 km/s. See docs/analyses/voyager-baselines.md."
+  },
+  {
+    "id": "voyager-2",
+    "name": "Voyager 2 (baseline): Jupiter → Saturn → Uranus → Neptune",
+    "file": "voyager-2.json",
+    "summary": "Historical flyby sequence; illustrative unpowered patched-conic baseline calibrated to v∞ 15.2 km/s. See docs/analyses/voyager-baselines.md."
   }
 ]

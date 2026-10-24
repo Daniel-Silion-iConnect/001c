@@ -18,7 +18,10 @@ Visit the printed HTTP URL. JSON fetching requires an HTTP server; opening
 installation is required. The 3D renderer imports pinned Three.js modules from
 jsDelivr; the canvas renderer and engine have no external dependencies.
 
-The default scenario is `schema-example.json`. Load another file with the form or
+The default scenario is the fastest final v∞ in `scenarios/index.json`
+(currently Concept C). The picker lists that index in descending final v∞ order,
+including Voyager 1 and 2. The schema example remains available by explicit path
+for testing. Load another file with the form or
 `?scenario=other-trajectory.json` (paths resolve relative to the viewer). Absolute
 HTTP URLs also work if their server permits CORS.
 
@@ -146,11 +149,15 @@ schema inputs; `viewer.js` handles loading, HUD, and renderer selection.
 
 ## Reference scenarios
 
-`scenarios/` holds the baseline variants of Concepts A, B and C from
+`scenarios/` holds Voyager 1 and 2 plus the baseline variants of Concepts A, B and C from
 [reference-scenarios.md](../../docs/analyses/reference-scenarios.md) as schema-valid
 trajectories, listed in `scenarios/index.json` (`id`, `name`, `file`, `summary`). The
-viewer's **Reference scenario** picker (`scenario-picker.js`) loads them; the schema
-example stays the default. Each file starts after the Earth departure and Jupiter
+viewer's **Reference scenario** picker (`scenario-picker.js`) loads them, fastest
+final v∞ first; tests check the index order against the engine. The Voyager files
+preserve historical launch dates and dated flyby sequences with unpowered assists
+calibrated to 16.9 and 15.2 km/s. They use nominal flyby geometries rather than an
+ephemeris reconstruction; see [sources and calibration](../../docs/analyses/voyager-baselines.md).
+Each Concept A/B/C file starts after the Earth departure and Jupiter
 assist, which are not modelled. `targetAsymptotic_km_s` records the doc's far-field
 linear v∞. Tether stations sit at 10–30 AU, so their Δv adds almost linearly. Concept B's
 `solarSail` event deploys a β = 0.25 radial sail after the perihelion kick. The

@@ -1,12 +1,12 @@
-// Reference scenarios A/B/C (docs/analyses/reference-scenarios.md): schema validity,
-// engine run, and agreement with the doc's back-of-envelope numbers.
+// Reference concepts and Voyager baselines: schema validity, engine/viewer runs,
+// agreement with documented speeds, and speed-ranked picker defaults.
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { test } from 'node:test';
 import { validateTrajectory } from '../../scripts/validate-schema.mjs';
 import { applyTrajectory, AU_KM } from './engine.js';
 import { buildTrajectory } from './viewer-data.js';
-import { DEFAULT_SCENARIO, pickerOptions } from './scenario-picker.js';
+import { pickerOptions, selectScenario } from './scenario-picker.js';
 
 const dir = new URL('./scenarios/', import.meta.url);
 const readJson = async (url) => JSON.parse(await readFile(url, 'utf8'));
@@ -120,10 +120,47 @@ test('tether stations sit on the outbound leg between 10 and 30 AU', () => {
   }
 });
 
-test('picker lists the schema example first, then index entries', () => {
+for (const [id, epoch, target, encounters] of [
+  ['voyager-1', '1977-09-05T12:56:01Z', 16.9, [['Jupiter', '1979-03-05'], ['Saturn', '1980-11-12']]],
+  ['voyager-2', '1977-08-20T14:29:44Z', 15.2, [['Jupiter', '1979-07-09'], ['Saturn', '1981-08-25'], ['Uranus', '1986-01-24'], ['Neptune', '1989-08-25']]]
+]) {
+  test(`${id} preserves the historical launch/encounters and calibrated escape speed`, () => {
+    const doc = scenarios[id];
+    assert.equal(doc.epoch, epoch);
+    assert.deepEqual(doc.events.map(e => [e.type, e.body, e.id]),
+      encounters.map(([body, date]) => ['gravityAssist', body, `${body.toLowerCase()}-${date}`]));
+    const out = applyTrajectory(doc);
+    close(out.vInf_km_s, target, 0.3, 'final heliocentric v∞');
+    assert.equal(doc.targetAsymptotic_km_s, target);
+    assert.equal(out.totalDeltaV_km_s, 0, 'unpowered gravity assists only');
+    for (const entry of out.log) {
+      close(entry.flyby.vInfOut_km_s, entry.flyby.vInfIn_km_s, 1e-9, 'planet-frame flyby energy conservation');
+      assert.ok(entry.flyby.periapsisAltitude_km > 0, 'flyby clears the planet surface');
+    }
+  });
+}
+
+test('index order matches descending engine-computed final v∞', () => {
+  const speeds = index.map(entry => applyTrajectory(scenarios[entry.id]).vInf_km_s);
+  assert.ok(speeds.every(speed => Number.isFinite(speed) && speed > 0));
+  assert.deepEqual(speeds, [...speeds].sort((a, b) => b - a));
+});
+
+test('picker lists only index entries and defaults to the fastest final v∞', () => {
   const options = pickerOptions(index);
-  assert.equal(options[0].value, DEFAULT_SCENARIO);
-  assert.deepEqual(options.slice(1).map((o) => o.value), index.map((e) => `scenarios/${e.file}`));
-  assert.deepEqual(options.slice(1).map((o) => o.label), index.map((e) => e.name));
+  assert.deepEqual(options.map(o => o.value), index.map(e => `scenarios/${e.file}`));
+  assert.deepEqual(options.map(o => o.label), index.map(e => e.name));
+  assert.ok(!options.some(o => o.value === 'schema-example.json'));
+  const fastest = [...index].sort((a, b) => applyTrajectory(scenarios[b.id]).vInf_km_s - applyTrajectory(scenarios[a.id]).vInf_km_s)[0];
+  for (const search of ['', '?scenario=', '?other=1']) {
+    assert.equal(selectScenario(options, search), `scenarios/${fastest.file}`);
+  }
+  for (const entry of index) {
+    assert.equal(selectScenario(options, `?scenario=scenarios/${entry.file}`), `scenarios/${entry.file}`);
+  }
+  assert.equal(selectScenario(options, '?scenario=custom.json'), 'custom.json');
+  assert.equal(selectScenario(options, '?scenario=schema-example.json'), 'schema-example.json');
+  assert.equal(selectScenario([], '?scenario=custom.json'), 'custom.json');
+  assert.throws(() => selectScenario([], ''), /No reference scenarios/);
   assert.throws(() => pickerOptions({}), /must be an array/);
 });
