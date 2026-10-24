@@ -2,12 +2,58 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { AU_KM, C_KM_S, MU, applyTrajectory, circularSpeed } from './engine.js';
-import { validateScenario, trueAnomalyFromMean, engineElements, buildTrajectory, speedText, buildPlayback, playbackAt } from './viewer-data.js';
+import { validateScenario, trueAnomalyFromMean, engineElements, buildTrajectory, speedText, buildSpeedSeries, targetProgress, SPEED_TARGET_KM_S, buildPlayback, playbackAt } from './viewer-data.js';
 import { legColor } from './renderers.js';
 
 const example = JSON.parse(readFileSync(new URL('./schema-example.json', import.meta.url)));
 const scenario = () => structuredClone(example);
 const near = (a, b, tolerance = 1e-9) => assert.ok(Math.abs(a - b) < tolerance, `${a} ≠ ${b}`);
+
+test('speed series preserves actual per-leg speeds, event order, labels, and skipped events', () => {
+  const model = buildTrajectory(example);
+  const original = structuredClone(model);
+  const series = buildSpeedSeries(model);
+  assert.equal(series.length, example.events.length + 1);
+  assert.deepEqual(series[0], { index: 0, label: 'Initial orbit', status: 'initial', vInf_km_s: null });
+  for (const [i, event] of example.events.entries()) {
+    assert.deepEqual(series[i + 1], {
+      index: i + 1, label: event.id ?? event.type,
+      status: model.result.log[i].status, vInf_km_s: model.legs[i + 1].vInf_km_s
+    });
+  }
+  const skipped = series.find(step => step.status === 'skipped');
+  near(skipped.vInf_km_s, series[skipped.index - 1].vInf_km_s);
+  assert.deepEqual(model, original);
+  const doc = scenario(); doc.events = [];
+  assert.deepEqual(buildSpeedSeries(buildTrajectory(doc)), [series[0]]);
+});
+
+test('speed history and target progress can decrease and return to a bound orbit', () => {
+  const doc = scenario();
+  doc.events = [
+    { type: 'burn', deltaV_km_s: 20, direction: 'prograde' },
+    { type: 'burn', deltaV_km_s: 1, direction: 'retrograde' },
+    { type: 'burn', deltaV_km_s: 19, direction: 'retrograde' }
+  ];
+  const series = buildSpeedSeries(buildTrajectory(doc));
+  assert.ok(series[1].vInf_km_s > series[2].vInf_km_s);
+  assert.ok(series[2].vInf_km_s > 0);
+  assert.ok(targetProgress(series[2].vInf_km_s).gap_km_s > targetProgress(series[1].vInf_km_s).gap_km_s);
+  assert.equal(series[3].vInf_km_s, null);
+  assert.equal(targetProgress(series[3].vInf_km_s).progressPercent, 0);
+});
+
+test('300 km/s target readout distinguishes bound, parabolic, below, at, and above target', () => {
+  assert.equal(SPEED_TARGET_KM_S, 300);
+  assert.deepEqual(targetProgress(null), { bound: true, gap_km_s: 300, percentReached: 0, progressPercent: 0 });
+  assert.deepEqual(targetProgress(0), { bound: false, gap_km_s: 300, percentReached: 0, progressPercent: 0 });
+  assert.deepEqual(targetProgress(75), { bound: false, gap_km_s: 225, percentReached: 25, progressPercent: 25 });
+  assert.deepEqual(targetProgress(300), { bound: false, gap_km_s: 0, percentReached: 100, progressPercent: 100 });
+  assert.deepEqual(targetProgress(450), { bound: false, gap_km_s: 0, percentReached: 150, progressPercent: 100 });
+  assert.deepEqual(targetProgress(75, 150), { bound: false, gap_km_s: 75, percentReached: 50, progressPercent: 50 });
+  for (const invalid of [NaN, Infinity, -Infinity, -1, undefined]) assert.throws(() => targetProgress(invalid), /Escape speed/);
+  for (const invalid of [NaN, Infinity, -Infinity, -1, 0]) assert.throws(() => targetProgress(1, invalid), /target/);
+});
 
 test('light validation accepts the example and rejects malformed required fields', () => {
   assert.equal(validateScenario(example), example);
