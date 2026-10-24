@@ -9,7 +9,7 @@
     "id": "concept-b-baseline",
     "name": "Concept B (baseline): Sundiver hybrid (chemical Oberth + solar sail)",
     "file": "scenario-b.json",
-    "summary": "6 km/s kick at 10 R_sun (v∞ 45.07 km/s); the β = 0.25 sail is not yet modelled, doc hybrid reference 107.56 km/s (3.59e-4 c)."
+    "summary": "6 km/s kick at 10 R_sun followed by a β = 0.25 radial sail; engine hybrid v∞ 107.56 km/s (3.59e-4 c)."
   },
   {
     "id": "concept-c-baseline",

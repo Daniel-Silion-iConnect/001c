@@ -1,6 +1,6 @@
 # ORBITAL_NOTATION.md
 
-The machine-readable contract is [trajectory-schema.json](../prototype/spacekit/trajectory-schema.json), JSON Schema draft 2020-12. The [example](../prototype/spacekit/schema-example.json) demonstrates every event type.
+The machine-readable contract is [trajectory-schema.json](../prototype/spacekit/trajectory-schema.json), JSON Schema draft 2020-12. The [example](../prototype/spacekit/schema-example.json) demonstrates impulses and flybys; [Concept B](../prototype/spacekit/scenarios/scenario-b.json) demonstrates a solar sail.
 
 ## Trajectory envelope
 
@@ -42,10 +42,46 @@ Use `type: "cartesian"`, `r: [x, y, z]`, `v: [vx, vy, vz]`, and `units: { "r": "
 | `tetherRelease` | `direction` and exactly one of `deltaV_km_s`, `tipSpeed_km_s`, or `tetherLength_km` + `rotationPeriod_s` |
 | `hitchhike` | `deltaV_km_s`, `direction` |
 | `gravityAssist` | Nonempty `body` and at least one of `periapsis_km`, `periapsisAltitude_km` (not both), `turnAngle_deg` |
+| `solarSail` | `beta`, dimensionless lightness number, 0 ≤ β < 1 |
 
 Impulse magnitudes are nonnegative scalars in km/s; zero is allowed for a no-op. `direction` is required and uses the pre-event local state: `prograde` follows velocity, `retrograde` opposes velocity, `radial` points away from the central body, and `normal` follows the angular momentum vector r × v. The frame and initial state determine these vectors; degenerate vectors require engine handling. This version provides no inward radial, negative normal, or explicit vector impulses. `hitchhike` uses the same local direction convention; modeling alignment with a target object's velocity is future engine work.
 
 `oberthBurn` is the chosen distinct event type for an impulse at a specified perihelion distance from the central body's center.
+
+### `solarSail`
+
+An ideal sail oriented normal to the Sun supplies outward radial acceleration
+βμ☉/r². Only `centralBody: "Sun"` is supported. Deployment preserves position and
+velocity and changes the propagation parameter to μ_eff = μ☉(1 − β). The current
+attractive-conic solver requires β < 1; zero-gravity and repulsive trajectories
+are rejected. β = 0 jettisons the sail and restores true solar gravity. A later
+`solarSail` replaces the active β rather than adding to it.
+
+Optional `location` uses the same apsis / true-anomaly convention as
+`tetherRelease`, defaulting to `current`. The engine first moves along the
+previous conic, then changes β at that position. An unreachable location warns
+and uses the current position. The sail stays active across later events until
+another `solarSail` changes it or the trajectory ends. To end a finite sail leg,
+use `{ "type": "solarSail", "beta": 0, "location": 60 }`, where 60° is the true
+anomaly on the active sail conic. No impulse, `direction`, or `deltaV_km_s` is
+required or accepted, and radiation pressure adds no impulsive Δv to the budget.
+
+The predicted asymptotic energy uses true solar gravity plus remaining sail work:
+E∞ = (v²/2 − μ☉/r) + βμ☉/r. Thus v∞² = v² − 2μ☉(1 − β)/r, as in the hybrid
+formula in [reference scenarios §3.3](analyses/reference-scenarios.md#33-back-of-envelope-calculation-concept-b).
+`vInf_km_s`, `bound`, and `specificEnergy_km2_s2` describe this projected escape
+while the sail remains deployed. `gravityOnlySpecificEnergy_km2_s2` and each log
+entry's `gravityOnlyVInf_km_s` describe the local state against true μ☉ without
+future sail work. Jettison retains only work already delivered; no velocity is
+lost instantaneously. For deployment at r₁ and jettison at r₂, delivered work is
+βμ☉(1/r₁ − 1/r₂). A bound sail conic still reports null v∞.
+
+`finalElements` and `ephemerisPoints` use `effectiveMu_km3_s2`, returned alongside
+`sailBeta`. When resuming those elements with `applyEvents`, pass
+`{ sailBeta: previousResult.sailBeta }`; `options.mu` continues to mean the true
+central-body parameter. Flyby bodies retain their true-gravity orbital speeds.
+The 97.66 km/s pure-sail reference assumes a parabolic arrival at 10 R☉; removing
+the kick from Concept B's bound transfer ellipse yields a slightly lower speed.
 
 ### `gravityAssist`
 
@@ -73,7 +109,7 @@ Fields:
 - `location` is `current` (default), `perihelion` / `periapsis`, `aphelion` / `apoapsis`, or a true anomaly in degrees. `direction` is the tip velocity at release.
 - The engine logs `tether`: tip speed, payload Δv, facility recoil, and payload acceleration in g when the length is known. The payload Δv counts in `totalDeltaV_km_s`.
 
-The old `elements`, vector `deltaV`, and event `units` fields are rejected. The engine (`prototype/spacekit/engine.js`) models `burn`, `oberthBurn`, `gravityAssist`, and `tetherRelease`. It passes `hitchhike` through with a warning.
+The old `elements`, vector `deltaV`, and event `units` fields are rejected. The engine (`prototype/spacekit/engine.js`) models `burn`, `oberthBurn`, `gravityAssist`, `tetherRelease`, and `solarSail`. It passes `hitchhike` through with a warning.
 
 ## Validation
 

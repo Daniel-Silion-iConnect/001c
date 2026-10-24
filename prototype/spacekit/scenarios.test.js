@@ -69,7 +69,7 @@ test('concept A baseline matches §2.3', () => {
   assert.equal(doc.targetAsymptotic_km_s, 112.42);
 });
 
-test('concept B baseline matches §3.3 (sail applied analytically)', () => {
+test('concept B baseline matches §3.3 with a modelled solar sail', () => {
   const doc = scenarios['concept-b-baseline'];
   const out = applyTrajectory(doc);
   const o = oberth(out);
@@ -79,10 +79,13 @@ test('concept B baseline matches §3.3 (sail applied analytically)', () => {
   const vpPlus = o.vBefore_km_s + doc.events[0].deltaV_km_s;
   close(vpPlus, 200.46, 0.01, 'v_p+');
   // Burn-only escape: sqrt(200.46² − 195.33²). (§6 lists 48.20, inconsistent with §3.3's own inputs.)
-  close(out.vInf_km_s, 45.07, 0.01, 'burn-only v∞');
+  close(out.log[0].after.vInf_km_s, 45.07, 0.01, 'burn-only v∞');
   // Hybrid equation 1.4 with β = 0.25 on the engine's perihelion state gives the doc result.
   const beta = 0.25;
   close(Math.sqrt(vpPlus ** 2 - (1 - beta) * o.vEsc_km_s ** 2), 107.56, 0.01, 'hybrid v∞');
+  close(out.vInf_km_s, 107.56, 0.01, 'engine hybrid v∞');
+  close(out.log[1].sail.beta, beta, 0, 'sail lightness number');
+  close(out.totalDeltaV_km_s, 6, 1e-9, 'only the kick is impulsive');
   close(Math.sqrt(beta) * o.vEsc_km_s, 97.66, 0.01, 'pure-sail v∞');
   assert.equal(doc.targetAsymptotic_km_s, 107.56);
 });

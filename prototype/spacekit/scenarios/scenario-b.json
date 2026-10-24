@@ -1,6 +1,6 @@
 {
   "name": "Concept B (baseline): Sundiver hybrid (chemical Oberth + solar sail)",
-  "description": "docs/analyses/reference-scenarios.md §3, concept-b-baseline. Starts on the post-Jupiter-assist transfer ellipse (r_a = 5.204 AU, r_p = 10.0 R_sun) at aphelion; the C3 = 95 km²/s² departure and JGA are not modelled. Only the 6.0 km/s perihelion kick is encoded (engine v_inf ≈ 45.07 km/s). The sail (beta = 0.25, sigma_eff = 6.12 g/m², ~330 m²) has no schema event type yet, so the doc hybrid result of 107.56 km/s (3.59e-4 c) is recorded only as targetAsymptotic_km_s.",
+  "description": "docs/analyses/reference-scenarios.md §3, concept-b-baseline. Starts on the post-Jupiter-assist transfer ellipse (r_a = 5.204 AU, r_p = 10.0 R_sun) at aphelion; the C3 = 95 km²/s² departure and JGA are not modelled. A 6.0 km/s perihelion kick followed by a radial sail (beta = 0.25, sigma_eff = 6.12 g/m², ~330 m²) gives v_inf ≈ 107.56 km/s (3.59e-4 c). The sail remains deployed to infinity.",
   "epoch": "2026-10-24T00:00:00Z",
   "centralBody": "Sun",
   "frame": "ECLIPJ2000",
@@ -24,7 +24,13 @@
       "deltaV_km_s": 6,
       "direction": "prograde",
       "perihelion_AU": 0.04650467260962158,
-      "notes": "Jettisoned hybrid kick stage at 10.0 R_sun; v_p- 194.46 -> v_p+ 200.46 km/s. Sail deploys afterwards (not modelled)."
+      "notes": "Jettisoned hybrid kick stage at 10.0 R_sun; v_p- 194.46 -> v_p+ 200.46 km/s. Sail deploys afterwards."
+    },
+    {
+      "id": "sail-deployment",
+      "type": "solarSail",
+      "beta": 0.25,
+      "notes": "Radial radiation pressure reduces solar gravity to mu_sun * (1 - beta) on the outbound leg; no impulsive delta-v."
     }
   ],
   "targetAsymptotic_km_s": 107.56

@@ -14,6 +14,9 @@
 // Gravity assists are patched conics: the flyby rotates v∞ relative to the
 // flyby body by δ = 2·asin(1/e). Tether releases are impulsive Δv from a rigid
 // rotating tether.
+// Radial solar sails keep the state vector continuous and change the conic's
+// parameter to μ(1 − β). Escape energy includes the remaining sail work βμ/r;
+// it is measured at infinity where the true solar potential vanishes.
 //
 // Internal units: km, km/s, radians. Element input/output follows
 // docs/ORBITAL_NOTATION.md (a in AU or km, angles in degrees).
@@ -343,7 +346,8 @@ function describe(state) {
     a_AU: Number.isFinite(k.a) ? k.a / AU_KM : null,
     e: k.e,
     rp_AU: k.rp / AU_KM,
-    vInf_km_s: vInfinity(state.mu, rMag, speed)
+    vInf_km_s: vInfinity(state.mu, rMag, speed),
+    gravityOnlyVInf_km_s: vInfinity(state.trueMu, rMag, speed)
   };
 }
 
@@ -434,6 +438,33 @@ function impulse(state, dv) {
 }
 
 // ---------- event handlers ----------
+
+function sailMu(mu, beta, centralBody) {
+  // The attractive-conic solver cannot represent zero or repulsive gravity.
+  if (!Number.isFinite(beta) || beta < 0 || beta >= 1) {
+    throw new RangeError('solarSail beta must be finite and satisfy 0 ≤ beta < 1');
+  }
+  if (beta !== 0 && centralBody !== 'Sun') throw new Error('solarSail requires centralBody Sun');
+  return mu * (1 - beta);
+}
+
+function handleSolarSail(state, ev, entry) {
+  if (state.centralBody !== 'Sun') throw new Error('solarSail requires centralBody Sun');
+  const mu = sailMu(state.trueMu, ev.beta, state.centralBody);
+  const warn = moveToLocation(state, ev.location ?? 'current');
+  if (warn) entry.warnings.push(warn);
+  const previousBeta = state.sailBeta;
+  state.sailBeta = ev.beta;
+  state.mu = mu;
+  entry.sail = {
+    previousBeta,
+    beta: ev.beta,
+    radius_AU: norm(state.r) / AU_KM,
+    effectiveMu_km3_s2: mu,
+    remainingWork_km2_s2: ev.beta * state.trueMu / norm(state.r)
+  };
+  return 0; // Continuous radiation pressure is not an impulsive Δv.
+}
 
 function handleBurn(state, ev, entry) {
   const warn = moveToLocation(state, ev.location ?? (ev.nu_deg ?? 'current'));
@@ -629,7 +660,7 @@ function handleGravityAssist(state, ev, entry) {
   const rMag = norm(state.r);
   const tangent = cross([0, 0, 1], state.r);
   if (norm(tangent) <= SMALL * rMag) throw new RangeError('flyby position is on the reference-plane pole');
-  const vBody = scale(unit(tangent), circularSpeed(state.mu, rMag));
+  const vBody = scale(unit(tangent), circularSpeed(state.trueMu, rMag));
   const vInfInVec = add(state.v, scale(vBody, -1));
   const vInfIn = norm(vInfInVec);
   if (vInfIn === 0) return skip('probe is co-moving with the flyby body (v∞ = 0)');
@@ -685,6 +716,7 @@ const HANDLERS = {
   burn: handleBurn,
   oberthBurn: handleOberthBurn,
   tetherRelease: handleTetherRelease,
+  solarSail: handleSolarSail,
   gravityAssist: handleGravityAssist
 };
 
@@ -701,6 +733,7 @@ const DEFERRED_TYPES = new Set(['hitchhike']);
  * @param {object} [options]
  * @param {string} [options.centralBody='Sun']
  * @param {number} [options.mu] override gravitational parameter, km³/s²
+ * @param {number} [options.sailBeta=0] active sail when resuming effective elements
  * @param {number} [options.ephemerisSamples=0] points to sample on the final conic
  * @param {number} [options.ephemerisMaxRadius_AU=100] radius cap for unbound sampling
  */
@@ -709,7 +742,11 @@ function applyEvents(initialElements, events = [], options = {}) {
   const mu = options.mu ?? MU[centralBody];
   if (!mu) throw new Error(`unknown central body "${centralBody}" (pass options.mu)`);
 
-  const state = makeState(fromSchemaElements(initialElements), mu);
+  const sailBeta = options.sailBeta ?? 0;
+  const state = {
+    ...makeState(fromSchemaElements(initialElements), sailMu(mu, sailBeta, centralBody)),
+    trueMu: mu, centralBody, sailBeta
+  };
   const log = [];
   let totalDeltaV = 0;
 
@@ -738,13 +775,16 @@ function applyEvents(initialElements, events = [], options = {}) {
     log.push(entry);
   });
 
-  const k = stateToElements(state.r, state.v, mu);
+  const k = stateToElements(state.r, state.v, state.mu);
   const rMag = norm(state.r);
-  const vInf = vInfinity(mu, rMag, norm(state.v));
+  // E∞ = (v²/2 − μ_true/r) + βμ_true/r, not gravity-only local energy.
+  const vInf = vInfinity(state.mu, rMag, norm(state.v));
   const bound = vInf === null;
 
   return {
     centralBody,
+    sailBeta: state.sailBeta,
+    effectiveMu_km3_s2: state.mu,
     finalElements: toSchemaElements(k),
     bound,
     vInf_km_s: vInf,
@@ -752,8 +792,9 @@ function applyEvents(initialElements, events = [], options = {}) {
     fractionOfC: bound ? null : vInf / C_KM_S,
     totalDeltaV_km_s: totalDeltaV,
     specificEnergy_km2_s2: k.energy,
+    gravityOnlySpecificEnergy_km2_s2: norm(state.v) ** 2 / 2 - mu / rMag,
     finalState: { r_km: state.r, v_km_s: state.v },
-    ephemerisPoints: sampleConic(k, mu, options.ephemerisSamples ?? 0, options.ephemerisMaxRadius_AU ?? 100),
+    ephemerisPoints: sampleConic(k, state.mu, options.ephemerisSamples ?? 0, options.ephemerisMaxRadius_AU ?? 100),
     log
   };
 }

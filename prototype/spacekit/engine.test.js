@@ -32,6 +32,123 @@ const near = (actual, expected, tol, msg) =>
 
 const circular1AU = { type: 'keplerian', a: 1, e: 0, units: { a: 'AU', angles: 'deg' } };
 
+// ---------- solarSail ----------
+
+test('Concept B hybrid sail reproduces §3.3: 107.56 km/s at beta = 0.25', () => {
+  const doc = JSON.parse(readFileSync(new URL('./scenarios/scenario-b.json', import.meta.url)));
+  const out = applyTrajectory(doc, { ephemerisSamples: 64 });
+  const kick = out.log[0];
+  const sail = out.log[1];
+  const r = sail.sail.radius_AU * AU_KM;
+  const vp = kick.after.speed_km_s;
+  near(out.vInf_km_s, 107.56, 0.01);
+  near(out.vInf_km_s ** 2, vp ** 2 - 2 * (1 - 0.25) * MU.Sun / r, 1e-8);
+  near(sail.after.speed_km_s, sail.before.speed_km_s, 0, 'deployment adds no velocity impulse');
+  near(out.totalDeltaV_km_s, 6, 1e-9);
+  near(out.fractionOfC, out.vInf_km_s / C_KM_S, 1e-15);
+  near(out.gravityOnlySpecificEnergy_km2_s2 + sail.sail.remainingWork_km2_s2,
+    out.specificEnergy_km2_s2, 1e-9, 'true energy plus sail work');
+  near(sail.after.gravityOnlyVInf_km_s, 45.07, 0.01);
+  near(out.effectiveMu_km3_s2, 0.75 * MU.Sun, 0);
+  for (const point of out.ephemerisPoints) {
+    const radius = Math.hypot(...point.r_AU) * AU_KM;
+    const speed = Math.hypot(...point.v_km_s);
+    near(speed ** 2 / 2 - MU.Sun / radius + 0.25 * MU.Sun / radius,
+      out.specificEnergy_km2_s2, 1e-8, 'sampled sail energy is conserved');
+  }
+});
+
+test('pure parabolic sundiver gives 97.66 km/s, while a bound inbound ellipse gives less', () => {
+  const rp = 10 * 695700 / AU_KM;
+  const parabolic = { e: 1, rp, nu: 0 };
+  const out = applyEvents(parabolic, [{ type: 'solarSail', beta: 0.25 }]);
+  near(out.vInf_km_s, 97.66, 0.01);
+  near(out.vInf_km_s, Math.sqrt(0.25) * escapeSpeed(MU.Sun, rp * AU_KM), 1e-10);
+  assert.equal(out.bound, false);
+  assert.equal(out.totalDeltaV_km_s, 0);
+  const doc = JSON.parse(readFileSync(new URL('./scenarios/scenario-b.json', import.meta.url)));
+  const ellipse = applyEvents(doc.initialElements, [{ type: 'solarSail', beta: 0.25, location: 'perihelion' }]);
+  near(ellipse.vInf_km_s ** 2, out.vInf_km_s ** 2 - MU.Sun / (doc.initialElements.a * AU_KM), 1e-8);
+  assert.ok(ellipse.vInf_km_s < out.vInf_km_s);
+});
+
+test('sail starts at the event position and stays active across subsequent impulses', () => {
+  const fall = { e: 1, rp: 0.1, nu: 60 };
+  const initial = applyEvents(fall, []);
+  const events = [{ type: 'solarSail', beta: 0.25 }, { type: 'burn', deltaV_km_s: 2, direction: 'prograde' }];
+  const out = applyEvents(fall, events);
+  const r = Math.hypot(...initial.finalState.r_km);
+  const speed = Math.hypot(...initial.finalState.v_km_s);
+  near(out.log[0].sail.radius_AU, r / AU_KM, 1e-12);
+  near(out.log[0].after.vInf_km_s ** 2, 2 * 0.25 * MU.Sun / r, 1e-8);
+  near(out.vInf_km_s ** 2, (speed + 2) ** 2 - 2 * 0.75 * MU.Sun / r, 1e-8);
+  near(out.totalDeltaV_km_s, 2, 1e-12);
+  assert.equal(out.sailBeta, 0.25);
+  const sail = applyEvents(fall, events.slice(0, 1));
+  const resumed = applyEvents(sail.finalElements, events.slice(1), { sailBeta: sail.sailBeta });
+  near(resumed.vInf_km_s, out.vInf_km_s, 1e-9);
+});
+
+test('beta = 0 jettisons at a later position with only the finite sail work retained', () => {
+  const fall = { e: 1, rp: 0.1, nu: 0 };
+  const deploy = { type: 'solarSail', beta: 0.25 };
+  const sail = applyEvents(fall, [deploy]);
+  const coasting = applyEvents(fall, [deploy, { type: 'burn', deltaV_km_s: 0, location: 60 }]);
+  const out = applyEvents(fall, [deploy, { type: 'solarSail', beta: 0, location: 60 }]);
+  const rDeploy = 0.1 * AU_KM;
+  const rJettison = out.log[1].sail.radius_AU * AU_KM;
+  near(out.vInf_km_s ** 2, 2 * 0.25 * MU.Sun * (1 / rDeploy - 1 / rJettison), 1e-8);
+  assert.ok(out.vInf_km_s < sail.vInf_km_s, 'future sail work is removed');
+  assert.deepEqual(out.finalState, coasting.finalState, 'jettison preserves position and velocity');
+  assert.equal(out.effectiveMu_km3_s2, MU.Sun);
+  assert.equal(out.sailBeta, 0);
+  assert.equal(out.totalDeltaV_km_s, 0);
+  near(out.specificEnergy_km2_s2, out.gravityOnlySpecificEnergy_km2_s2, 1e-9);
+});
+
+test('zero beta is a no-op, beta changes replace rather than stack, and sails can remain bound', () => {
+  const initial = applyEvents(circular1AU, []);
+  const zero = applyEvents(circular1AU, [{ type: 'solarSail', beta: 0 }]);
+  assert.deepEqual(zero.finalState, initial.finalState);
+  assert.deepEqual(zero.finalElements, initial.finalElements);
+  assert.equal(zero.vInf_km_s, null);
+  const active = applyEvents(circular1AU, [{ type: 'solarSail', beta: 0.25 }]);
+  assert.equal(active.bound, true);
+  assert.equal(active.vInf_km_s, null);
+  assert.equal(active.fractionOfC, null);
+  const par = applyEvents(circular1AU, [{ type: 'solarSail', beta: 0.5 }]);
+  assert.equal(par.bound, false);
+  assert.equal(par.vInf_km_s, 0);
+  const events = [0.25, 0.25, 0.5, 0].map(beta => ({ type: 'solarSail', beta }));
+  const out = applyEvents(circular1AU, events);
+  near(out.log[0].after.a_AU, out.log[1].after.a_AU, 0);
+  assert.deepEqual(out.finalState, initial.finalState);
+  assert.deepEqual(out.finalElements, initial.finalElements);
+});
+
+test('sail affects probe motion but flyby body velocity uses true solar gravity', () => {
+  const out = applyEvents({ a: 3.5, e: 5 / 7 }, [
+    { type: 'solarSail', beta: 0.25 },
+    { type: 'gravityAssist', body: 'Jupiter', periapsis_km: 5e6 }
+  ]);
+  assert.equal(out.log[1].status, 'applied');
+  const fb = out.log[1].flyby;
+  near(Math.hypot(...fb.bodyVelocity_km_s), circularSpeed(MU.Sun, fb.encounterRadius_AU * AU_KM), 1e-12);
+  assert.equal(out.sailBeta, 0.25);
+  assert.equal(out.totalDeltaV_km_s, 0);
+});
+
+test('solar sail rejects invalid lightness numbers and non-solar central bodies', () => {
+  for (const beta of [undefined, null, -1, 1, 1.1, Infinity, NaN, '0.25']) {
+    assert.throws(() => applyEvents(circular1AU, [{ type: 'solarSail', beta }]), /beta/);
+  }
+  assert.throws(() => applyEvents(circular1AU, [{ type: 'solarSail', beta: 0.25 }], { centralBody: 'Earth' }), /Sun/);
+  assert.throws(() => applyEvents(circular1AU, [], { sailBeta: 1 }), /beta/);
+  const customMu = MU.Sun * 2;
+  const out = applyEvents({ e: 1, rp: 0.1 }, [{ type: 'solarSail', beta: 0.25 }], { mu: customMu });
+  near(out.vInf_km_s ** 2, 2 * 0.25 * customMu / (0.1 * AU_KM), 1e-8);
+});
+
 test('vis-viva: circular speed at 1 AU ≈ 29.78 km/s', () => {
   // sqrt(1.32712440018e11 / 1.495978707e8) = sqrt(887.13) = 29.785
   near(visViva(MU.Sun, AU_KM, AU_KM), 29.7847, 1e-3);

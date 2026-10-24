@@ -9,6 +9,42 @@ const example = JSON.parse(readFileSync(new URL('./schema-example.json', import.
 const scenario = () => structuredClone(example);
 const near = (a, b, tolerance = 1e-9) => assert.ok(Math.abs(a - b) < tolerance, `${a} ≠ ${b}`);
 
+test('viewer retains sail state across events and plays the effective-gravity conic', () => {
+  const doc = JSON.parse(readFileSync(new URL('./scenarios/scenario-b.json', import.meta.url)));
+  doc.events.push({ type: 'burn', deltaV_km_s: 1, direction: 'prograde' });
+  const model = buildTrajectory(doc);
+  const engine = applyTrajectory(doc);
+  near(model.result.vInf_km_s, engine.vInf_km_s);
+  near(model.result.totalDeltaV_km_s, 7);
+  assert.equal(model.result.sailBeta, 0.25);
+  const playback = buildPlayback(model);
+  for (const index of [2, 3]) {
+    const leg = playback.legs[index];
+    near(leg.mu, 0.75 * MU.Sun);
+    nearPosition(playbackAt(playback, leg.start_s).position, model.legs[index].ephemerisPoints[0].r_AU);
+    const midpoint = playbackAt(playback, leg.start_s + leg.duration_s / 2);
+    near(Math.hypot(...midpoint.position), model.legs[index].finalElements.rp);
+  }
+  doc.events.push({ type: 'solarSail', beta: 0, location: 60 });
+  const jettisoned = buildTrajectory(doc);
+  near(jettisoned.result.vInf_km_s, applyTrajectory(doc).vInf_km_s);
+  near(buildPlayback(jettisoned).legs.at(-1).mu, MU.Sun);
+  assert.equal(jettisoned.result.sailBeta, 0);
+});
+
+test('viewer validation rejects invalid solar sail parameters', () => {
+  for (const event of [
+    { type: 'solarSail' }, { type: 'solarSail', beta: -0.1 },
+    { type: 'solarSail', beta: 1 }, { type: 'solarSail', beta: Infinity },
+    { type: 'solarSail', beta: '0.25' }, { type: 'solarSail', beta: 0.25, location: 'outbound' }
+  ]) {
+    const doc = scenario(); doc.events = [event];
+    assert.throws(() => validateScenario(doc), /solarSail|sail location/);
+  }
+  const doc = scenario(); doc.centralBody = 'Earth'; doc.events = [{ type: 'solarSail', beta: 0.25 }];
+  assert.throws(() => validateScenario(doc), /Sun/);
+});
+
 test('speed series preserves actual per-leg speeds, event order, labels, and skipped events', () => {
   const model = buildTrajectory(example);
   const original = structuredClone(model);
