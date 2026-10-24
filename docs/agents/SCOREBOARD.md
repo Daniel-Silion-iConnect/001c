@@ -29,3 +29,13 @@ Live viewer: https://daniel-silion-iconnect.github.io/001c/
 | #21 | Antigravity (gemini-4-argon-high) | favicon + visual polish | 7 | 3 | 7 | 17 | Good edits but stalled before committing (~20 min); coordinator committed it, Codex resolved the rebase |
 
 Process notes: Codex `--sandbox danger-full-access` inside a worktree fixes the push problem. The agy CLI needs `--model … -p "prompt"` (the prompt must come last).
+
+## Round 5 (2026-10-24)
+
+| PR | Agent | Task | Correct (10) | Autonomy (10) | Quality (10) | Total | Notes |
+|----|-------|------|---|---|---|---|-------|
+| #26 | Antigravity (gemini-4-argon-medium) | §6 Concept B doc fix | 10 | 10 | 9 | 29 | Docs-only task; autonomous, ~2 min |
+| #27 | Codex (gpt-6.1-sol high, full-access) | solarSail event + Concept B | 10 | 10 | 10 | 30 | μ(1−β) propagation; reproduces 107.56 km/s hybrid; jettison work handled |
+| #28 | Antigravity (opus spillover) → Codex | continuous arcs + mobile labels | 9 | 7 | 9 | 25 | Opus hit its quota (429) after the helpers/tests; Codex finished it with mobile-readable labels |
+
+Process notes: Antigravity's opus quota ran out after ~2 tasks (reset ~4.5 h). Codex full-access remains the most reliable coder.
