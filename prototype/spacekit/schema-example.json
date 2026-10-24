@@ -6,19 +6,22 @@
   "frame": "ICRS",
   "initialElements": {
     "type": "keplerian",
-    "a": 1.0,
-    "e": 0.0,
-    "i": 0.0,
-    "raan": 0.0,
-    "argp": 0.0,
-    "nu": 0.0,
-    "units": { "a": "AU", "angles": "deg" }
+    "a": 1,
+    "e": 0,
+    "i": 0,
+    "raan": 0,
+    "argp": 0,
+    "nu": 0,
+    "units": {
+      "a": "AU",
+      "angles": "deg"
+    }
   },
   "events": [
     {
       "id": "earth-departure",
       "type": "burn",
-      "deltaV_km_s": 3.0,
+      "deltaV_km_s": 3,
       "direction": "prograde",
       "notes": "Chemical stage"
     },
@@ -26,14 +29,29 @@
       "id": "solar-oberth",
       "type": "oberthBurn",
       "perihelion_AU": 0.1,
-      "deltaV_km_s": 5.0,
-      "notes": "Deep solar burn — Oberth multiplier applied by engine"
+      "deltaV_km_s": 5,
+      "notes": "Deep solar burn — Oberth multiplier applied by engine",
+      "direction": "prograde"
     },
     {
       "id": "tether-1",
       "type": "tetherRelease",
       "deltaV_km_s": 2.5,
-      "notes": "Momentum exchange"
+      "notes": "Momentum exchange",
+      "direction": "prograde"
+    },
+    {
+      "id": "hitchhike-1",
+      "type": "hitchhike",
+      "deltaV_km_s": 0.1,
+      "direction": "prograde"
+    },
+    {
+      "id": "jupiter-assist",
+      "type": "gravityAssist",
+      "body": "Jupiter",
+      "periapsis_km": 100000,
+      "turnAngle_deg": 30
     }
   ],
   "targetAsymptotic_km_s": 300
