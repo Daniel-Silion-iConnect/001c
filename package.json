@@ -1,0 +1,12 @@
+{
+  "name": "001c",
+  "private": true,
+  "type": "module",
+  "description": "0.001c probe mission design prototypes",
+  "scripts": {
+    "test": "node --test prototype/spacekit/engine.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
