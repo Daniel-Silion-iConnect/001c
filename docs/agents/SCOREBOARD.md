@@ -56,3 +56,17 @@ Scored on creativity (10) and numerical accuracy (10), checked by `analysis/idea
 | Claude (claude-opus-5-5 medium) | Photon-recycling cavity catapult (307 km/s); Po-210 direct-charge ion drive (317 km/s Δv); lunar-anchor add-on | 9 | 10 | 19 | Every number within 1%; candid showstoppers; best lunar add-on (≥560 t recoil anchor saved) |
 | Codex (gpt-6.1-sol high) | Chirped pellet slipstream (318); solar-wind bank shot (371) | 9 | 9 | 18 | Clean derivations with sources; pellet energy 150 vs 131 GJ (−13%) |
 | Antigravity (gemini-4-argon-medium) | FFRE perihelion burn (241); coronal laser ablation (240/299); MagLIF kicker (claimed 312); 3 lunar add-ons | 8 | 4 | 12 | Prolific and inventive, but MagLIF v_e off ×32, perigee-dive gain +28%, unphysical inbound v∞, missed a 7 km aperture; riff gains unverifiable |
+
+## Round 7 (2026-10-24): narratives, Voyager, exotic concepts, layout
+
+| PR | Agent | Task | Correct (10) | Autonomy (10) | Quality (10) | Total | Notes |
+|----|-------|------|---|---|---|---|-------|
+| #44 | Codex (gpt-6.1-sol high, full-access) | Voyager 1/2 baselines, sort by v∞, preselect fastest | 10 | 10 | 9 | 29 | Sourced; example removed from the picker |
+| #45 | Antigravity (gemini-4-argon-high) | narratives.json (data only) | 10 | 10 | 8 | 28 | Within word limits; grounded in the reference docs |
+| #47 | Codex | narrative panel UI | 10 | 10 | 10 | 30 | Intro + scenario + per-leg event text; readable at 460px |
+| #48 | Codex | Concept D laserCavityBoost | 10 | 10 | 9 | 29 | Matches ideas_calc.py; exotic metadata |
+| #49 | Codex | Concept E ionDrive | 10 | 10 | 9 | 29 | 316.8 km/s Δv |
+| #50 | Codex | Concept F pelletStream | 10 | 10 | 9 | 29 | 317.7 km/s |
+| #51 | Codex | mobile-first layout pass | 10 | 10 | 9 | 29 | Advanced <details>; collapsible cards |
+
+Process notes: a driver script ran D→E→F→layout sequentially on fresh main, merging each only after `gh pr checks --watch` was green.
