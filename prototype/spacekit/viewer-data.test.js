@@ -78,9 +78,9 @@ test('all legs, event positions, totals, and warnings agree with the engine', ()
   assert.equal(markers.length, example.events.length);
   near(result.totalDeltaV_km_s, engine.totalDeltaV_km_s);
   near(result.finalElements.a, engine.finalElements.a);
-  assert.deepEqual(result.log.map(e => e.status), ['applied', 'applied', 'skipped', 'skipped', 'skipped']);
+  assert.deepEqual(result.log.map(e => e.status), ['applied', 'applied', 'applied', 'skipped', 'applied']);
   assert.deepEqual(result.log.map(e => e.index), [0, 1, 2, 3, 4]);
-  assert.match(result.log[2].warnings[0], /not modelled/);
+  assert.match(result.log[3].warnings[0], /not modelled/);
   near(Math.hypot(...markers[1].position), 0.1); // The actual Oberth location, not the previous state.
   for (const [index, leg] of legs.entries()) {
     assert.equal(leg.ephemerisPoints.length, 257);

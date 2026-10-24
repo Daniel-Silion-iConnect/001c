@@ -1,21 +1,82 @@
-# Spacekit.js Prototype
+# Trajectory viewer
 
-Interactive 3D solar-system visualizer based on [spacekit.js](https://github.com/typpo/spacekit).
+Static, schema-driven trajectory visualization. The page loads JSON, runs the
+patched-conic engine, and draws the initial orbit plus the orbit after every event.
+Three.js provides interactive 3D; a local 2D canvas renderer starts immediately and
+remains usable if the CDN fails, times out, or WebGL is unavailable.
 
-## Status
-Skeleton only. Loads the solar system and a sample probe orbit.
+## Run
 
-## How to run
-Open `index.html` in a browser (or serve the directory).
+From the repository root:
 
-## Engine (`engine.js`)
-Patched-conic / impulsive-Δv engine (single central body, two-body conics).
+```sh
+npx serve prototype/spacekit
+```
+
+Visit the printed HTTP URL. JSON fetching requires an HTTP server; opening
+`index.html` through `file://` is not supported. No build step or runtime npm
+installation is required. The 3D renderer imports pinned Three.js modules from
+jsDelivr; the canvas renderer and engine have no external dependencies.
+
+The default scenario is `schema-example.json`. Load another file with the form or
+`?scenario=other-trajectory.json` (paths resolve relative to the viewer). Absolute
+HTTP URLs also work if their server permits CORS.
+
+Select a leg or numbered event to inspect its v∞ in km/s and percentage of c.
+The initial view selects the final leg. Bound orbits display “Bound orbit” because
+they have no escape asymptote; a parabolic escape displays zero. In 3D, drag to
+rotate and scroll to zoom. The canvas fallback uses an oblique projection in AU;
+it retains the same leg selector, event markers, and HUD.
+
+## Scope and validation
+
+The browser checks required fields, finite numbers, units, conic signs, event
+payloads, and supported central bodies (Sun, Earth, Jupiter). It adapts Cartesian
+states, mean anomaly, and the schema's outward `radial` direction for the engine.
+Coordinates stay in the scenario's declared inertial frame; no reference planets
+or frame conversion are needed for this single-body view.
+
+Each leg is a sampled complete conic, not a scheduled or propagated mission arc.
+Ellipses are closed orbits; hyperbolic and parabolic legs are open polylines capped
+at 30 AU. Numbered markers use the engine's actual post-event position. Coincident
+markers have offset labels so each event remains selectable.
+
+The engine currently skips `tetherRelease`, `gravityAssist`, and `hitchhike`;
+the UI labels these events as skipped and exposes their warnings under Engine
+notes. An Oberth event can include an implicit perihelion-retargeting burn; its
+intermediate transfer conic is not shown, and this is noted in the HUD. The example
+illustrates the event vocabulary rather than a validated mission solution.
+
+The authoritative contract is [trajectory-schema.json](./trajectory-schema.json).
+For full JSON Schema validation and the engine/viewer helper tests:
+
+```sh
+npm ci
+npm test
+node scripts/validate-schema.mjs path/to/trajectory.json
+```
+
+Run those commands from the repository root. Tests require Node ≥ 18 and the
+repository's development dependencies. The browser itself needs none of them.
+
+## Hosting
+
+[pages.yml](../../.github/workflows/pages.yml) tests and publishes this directory,
+including every local JS/CSS/JSON dependency, using `upload-pages-artifact` and
+`deploy-pages` on pushes to `main` (or manual dispatch). In repository Settings →
+Pages, choose **GitHub Actions** as the source.
+
+Live at **https://daniel-silion-iconnect.github.io/001c/** (repo is public; Pages on a private repo would need GitHub Pro/Team, see [GitHub's plan requirements](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages)).
+[Firebase Hosting](https://firebase.google.com/docs/hosting) is an alternative:
+serve `prototype/spacekit` as the public directory, with no build command.
+
+## Engine API
 
 ```js
 import { applyEvents, applyTrajectory } from './engine.js';
-const out = applyTrajectory(schemaExampleJson, { ephemerisSamples: 64 });
-// out: { finalElements, bound, vInf_km_s, asymptoticSpeed_km_s, fractionOfC,
-//        totalDeltaV_km_s, specificEnergy_km2_s2, finalState, ephemerisPoints, log }
+const out = applyTrajectory(trajectoryJson, { ephemerisSamples: 257 });
+// out: { finalElements, bound, vInf_km_s, fractionOfC, totalDeltaV_km_s,
+//        specificEnergy_km2_s2, finalState, ephemerisPoints, log, ... }
 ```
 
 - Speeds from vis-viva `v² = μ(2/r − 1/a)`, elliptic (a > 0), parabolic (`rp`, a = ∞) and hyperbolic (a < 0).
@@ -40,3 +101,7 @@ Tests: `npm test` from the repo root (Node ≥ 18, no dependencies).
 See [orbital notation](../../docs/ORBITAL_NOTATION.md) for fields, units, and event semantics.
 From the repository root run `npm ci` and `npm test`, or validate another file with
 `node scripts/validate-schema.mjs path/to/trajectory.json`.
+Burns change the state vector and recompute the conic. Speeds follow vis-viva;
+the Oberth result follows the change in orbital energy without an artificial
+multiplier. `viewer-data.js` builds per-event legs from `applyEvents` and adapts
+schema inputs; `viewer.js` handles loading, HUD, and renderer selection.

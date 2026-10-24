@@ -34,7 +34,7 @@ export function validateScenario(doc) {
     require(ev.id === undefined || (typeof ev.id === 'string' && ev.id.trim()), `${at}: id must be a nonempty string.`);
     if (ev.type === 'gravityAssist') {
       require(typeof ev.body === 'string' && ev.body.trim() && number(ev.periapsis_km) && ev.periapsis_km > 0
-        && number(ev.turnAngle_deg) && ev.turnAngle_deg > 0 && ev.turnAngle_deg < 180, `${at}: invalid gravity-assist parameters.`);
+        && (ev.turnAngle_deg === undefined || (number(ev.turnAngle_deg) && ev.turnAngle_deg > 0 && ev.turnAngle_deg < 180)), `${at}: invalid gravity-assist parameters.`);
     } else {
       require(number(ev.deltaV_km_s) && ev.deltaV_km_s >= 0, `${at}: deltaV_km_s must be nonnegative.`);
       require(['prograde', 'retrograde', 'radial', 'normal'].includes(ev.direction), `${at}: invalid direction.`);
