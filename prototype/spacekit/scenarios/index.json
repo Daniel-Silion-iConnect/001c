@@ -1,5 +1,14 @@
 [
   {
+    "id": "concept-f",
+    "name": "Concept F: Chirped pellet slipstream",
+    "file": "scenario-f.json",
+    "summary": "Chirped pellet reflection: 3.75 kg of pellets supplies 300 km/s delta-v to a 2 kg probe; a conservative 5 AU speed budget gives solar v∞ 317.7 km/s with ~131 GJ ideal launch energy.",
+    "category": "exotic",
+    "feasibility": "TRL 2; ideal momentum transfer checks out, assuming fixed 100 km/s relative speed and 80% reflection efficiency.",
+    "showstopper": "Pellet-stream aiming and ionisation over AU scales; one un-ionised pellet destroys the probe."
+  },
+  {
     "id": "concept-e",
     "name": "Concept E: Po-210 direct-charge ion drive",
     "file": "scenario-e.json",

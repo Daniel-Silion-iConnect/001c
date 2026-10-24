@@ -33,6 +33,94 @@ const near = (actual, expected, tol, msg) =>
 
 const circular1AU = { type: 'keplerian', a: 1, e: 0, units: { a: 'AU', angles: 'deg' } };
 
+// ---------- pelletStream ----------
+
+const conceptF = JSON.parse(readFileSync(new URL('./scenarios/scenario-f.json', import.meta.url)));
+const pelletEvent = conceptF.events[0];
+const pelletReference = (ev) => JSON.parse(execFileSync('python3', ['-c', `
+import contextlib, io, json, runpy, sys
+with contextlib.redirect_stdout(io.StringIO()):
+    calc = runpy.run_path(sys.argv[1])
+ev = json.loads(sys.argv[2])
+print(json.dumps(calc['chirped_pellet_stream'](ev['pelletMass_kg'], ev['pelletCount'],
+    ev['relativeVelocity_km_s'], ev['momentumEfficiency'], ev['probeMass_kg'])))
+`, new URL('../../analysis/ideas_calc.py', import.meta.url).pathname, JSON.stringify(ev)], { encoding: 'utf8' }));
+
+test('Concept F matches Python pellet momentum, launch energy and checked 317.7 km/s escape', () => {
+  const ref = pelletReference(pelletEvent);
+  const out = applyTrajectory(conceptF);
+  const stream = out.log[0].pelletStream;
+  near(out.totalDeltaV_km_s, ref.deltaV_km_s, 1e-10, 'Python momentum Δv');
+  near(out.vInf_km_s, ref.vInf_km_s, 0.001, 'Python v∞ (rounded solar constants)');
+  near(stream.totalPelletMass_kg, ref.totalPelletMass_kg, 1e-12);
+  near(stream.launchEnergy_J, ref.launchEnergy_J, 0.001, 'Python midpoint launch KE');
+  near(out.totalDeltaV_km_s, 300, 1e-10, 'Δv differs from v∞');
+  near(out.vInf_km_s, 317.7, 0.05);
+  near(stream.totalPelletMass_kg, 3.75, 1e-12);
+  near(stream.launchEnergy_J / 1e9, 131.25, 1e-6);
+  // The scenario encodes the reference's conservative 30-day gravity debit
+  // in its initial speed. The event supplies the full 300 km/s only once.
+  const before = out.log[0].before;
+  near(before.r_AU, 5, 1e-12);
+  near(before.speed_km_s, ref.initialSpeed_km_s, 0.001);
+  const vEsc = escapeSpeed(MU.Sun, 5 * AU_KM);
+  const gravityLoss = MU.Sun * 30 * 86400 / (5 * AU_KM) ** 2;
+  near(gravityLoss, ref.gravityLoss_km_s, 0.00003, 'rounded AU changes the gravity allowance by 0.02 m/s');
+  near(before.speed_km_s, vEsc - gravityLoss, 1e-12);
+  near(out.log[0].after.speed_km_s, before.speed_km_s + 300, 1e-10);
+  near(out.vInf_km_s ** 2, (vEsc - gravityLoss + 300) ** 2 - vEsc ** 2, 1e-9);
+  assert.equal(out.log[0].status, 'applied');
+  assert.deepEqual(out.finalState.r_km, applyTrajectory({ ...conceptF, events: [] }).finalState.r_km);
+  assert.match(stream.model, /reflected pellets; equivalent impulse at start/);
+});
+
+test('pellet momentum scales with mass, count, relative speed, efficiency and inverse probe mass', () => {
+  for (const [key, factor] of [['pelletMass_kg', 2], ['pelletCount', 2],
+    ['relativeVelocity_km_s', 2], ['momentumEfficiency', 0.5], ['probeMass_kg', 2]]) {
+    const ev = { ...pelletEvent, [key]: pelletEvent[key] * factor };
+    const ref = pelletReference(ev);
+    const out = applyTrajectory({ ...conceptF, events: [ev] });
+    near(out.totalDeltaV_km_s, ref.deltaV_km_s, 1e-10, key);
+    near(out.vInf_km_s, ref.vInf_km_s, 0.001, `${key} v∞`);
+    near(out.log[0].pelletStream.launchEnergy_J, ref.launchEnergy_J, 0.01, `${key} launch KE`);
+  }
+  // Dividing the same stream into more pellets preserves total momentum.
+  near(applyEvents(circular1AU, [{ ...pelletEvent, pelletCount: 20000, pelletMass_kg: 0.0001875 }]).totalDeltaV_km_s, 300, 1e-12);
+  const zero = applyEvents(circular1AU, [{ ...pelletEvent, momentumEfficiency: 0 }]);
+  assert.deepEqual(zero.finalState, applyEvents(circular1AU, []).finalState);
+  assert.equal(zero.totalDeltaV_km_s, 0);
+  near(applyEvents(circular1AU, [{ ...pelletEvent, momentumEfficiency: 1 }]).totalDeltaV_km_s, 375, 1e-12);
+});
+
+test('pellet impulses use local directions and compose with later events', () => {
+  for (const direction of ['prograde', 'retrograde', 'radial', 'normal']) {
+    const tail = { type: 'burn', deltaV_km_s: 1, direction: 'prograde' };
+    const out = applyEvents(circular1AU, [{ ...pelletEvent, direction }, tail]);
+    const expected = applyEvents(circular1AU, [{ type: 'burn', deltaV_km_s: 300, direction }, tail]);
+    assert.deepEqual(out.finalState, expected.finalState);
+    near(out.totalDeltaV_km_s, 301, 1e-12);
+  }
+});
+
+test('pellet stream rejects invalid physical inputs and numerical overflow', () => {
+  for (const key of ['pelletMass_kg', 'relativeVelocity_km_s', 'probeMass_kg']) {
+    for (const value of [undefined, 0, -1, NaN, Infinity, '1']) {
+      assert.throws(() => applyEvents(circular1AU, [{ ...pelletEvent, [key]: value }]), new RegExp(key));
+    }
+  }
+  for (const pelletCount of [undefined, 0, -1, 1.5, NaN, Infinity, '10000', Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => applyEvents(circular1AU, [{ ...pelletEvent, pelletCount }]), /pelletCount/);
+  }
+  for (const momentumEfficiency of [undefined, -0.1, 1.1, NaN, Infinity, '0.8']) {
+    assert.throws(() => applyEvents(circular1AU, [{ ...pelletEvent, momentumEfficiency }]), /momentumEfficiency/);
+  }
+  for (const direction of [undefined, 'inward']) {
+    assert.throws(() => applyEvents(circular1AU, [{ ...pelletEvent, direction }]), /direction/);
+  }
+  assert.throws(() => applyEvents(circular1AU, [{ ...pelletEvent, pelletMass_kg: Number.MAX_VALUE }]), /overflow/);
+  assert.throws(() => applyEvents(circular1AU, [{ ...pelletEvent, probeMass_kg: Number.MIN_VALUE }]), /overflow/);
+});
+
 // ---------- ionDrive ----------
 
 const conceptE = JSON.parse(readFileSync(new URL('./scenarios/scenario-e.json', import.meta.url)));

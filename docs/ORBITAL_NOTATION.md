@@ -45,10 +45,55 @@ Use `type: "cartesian"`, `r: [x, y, z]`, `v: [vx, vy, vz]`, and `units: { "r": "
 | `solarSail` | `beta`, dimensionless lightness number, 0 ≤ β < 1 |
 | `laserCavityBoost` | positive `power_MW`, `duration_s`, `probeMass_kg`; `recyclingFactor` ≥ 1; `direction` |
 | `ionDrive` | positive `isp_s`, `power_W`, `halfLife_days`, `wetMass_kg`, `dryMass_kg`; `conversionEfficiency`, `thrusterEfficiency` in (0, 1]; `direction` |
+| `pelletStream` | positive `pelletMass_kg`, integer `pelletCount`, positive `relativeVelocity_km_s`, `probeMass_kg`; `momentumEfficiency` in [0, 1]; `direction` |
 
 Impulse magnitudes are nonnegative scalars in km/s; zero is allowed for a no-op. `direction` is required and uses the pre-event local state: `prograde` follows velocity, `retrograde` opposes velocity, `radial` points away from the central body, and `normal` follows the angular momentum vector r × v. The frame and initial state determine these vectors; degenerate vectors require engine handling. This version provides no inward radial, negative normal, or explicit vector impulses. `hitchhike` uses the same local direction convention; modeling alignment with a target object's velocity is future engine work.
 
 `oberthBurn` is the chosen distinct event type for an impulse at a specified perihelion distance from the central body's center.
+
+### `pelletStream`
+
+Ideal external pellets are ionised and magnetically reflected at a fixed
+relative speed. Each pellet has mass `pelletMass_kg`; `pelletCount` is a positive
+safe integer (at most 2⁵³ − 1). The total incident mass is their product.
+`relativeVelocity_km_s` is the pellet approach speed in the probe's frame,
+not its heliocentric speed. The launcher must increase successive launch
+speeds as the probe accelerates (a chirped stream).
+
+For constant `probeMass_kg`, integrated momentum gives
+Δv = 2 · `momentumEfficiency` · `relativeVelocity_km_s` · total pellet mass /
+probe mass. The factor of two assumes ideal reflection; the efficiency scales
+that momentum transfer from zero to one. Pellets are expelled, not accreted;
+the small-pellet approximation neglects discrete recoil corrections. There is
+no rocket-equation mass ratio or carried mass budget between events.
+
+The engine applies Δv at the current position along `direction`, using the
+pre-event local vectors. It counts this external momentum in
+`totalDeltaV_km_s`. `log[].pelletStream` reports total pellet mass and ideal
+launch kinetic energy. The energy is the midpoint sum ½ Σ mₚ(w + vⱼ)² over
+probe speeds from zero to Δv, as in `analysis/ideas_calc.py`; it excludes initial
+heliocentric motion, launcher inefficiency, and ionisation energy. This is an
+**equivalent impulse at the start**, not a finite-duration powered trajectory.
+Pellet delivery, aiming, ionisation, heating, and steering are not simulated.
+
+[Concept F](../prototype/spacekit/scenarios/scenario-f.json) uses 10,000 pellets
+of 0.000375 kg (3.75 kg total), a **2 kg probe**, 100 km/s relative speed, and
+0.8 efficiency: **300 km/s Δv**, about **131 GJ** ideal launch energy. The
+matching `chirped_pellet_stream` Python function retains the original checked
+speed budget: v∞ = √((v_escape(5 AU) + Δv − Δv_gravity)² − v_escape(5 AU)²),
+where Δv_gravity = μ☉ · (30 days) / (5 AU)² ≈ 0.615 km/s is a conservative
+gravity-loss allowance at the starting radius.
+
+To encode that budget without a fictitious rocket burn, the scenario starts
+on an ellipse at 5 AU perihelion with speed v_escape − Δv_gravity ≈ 18.223 km/s
+(`a = 38.93347694817181 AU`, `e = 0.8715758161888292`). The allowance is already
+debited from the initial state; the event adds the full 300 km/s prograde.
+The resulting solar **v∞ is 317.665 km/s**, matching the checked **317.7 km/s**.
+Python uses rounded AU and solar μ; the engine differs by less than 0.001 km/s.
+This geometry represents the scalar speed budget, not the actual 30-day path
+or delivery to 5 AU. The preview shows the resulting coast. Aiming and ionising
+every pellet over AU scales remains the TRL 2 showstopper; one un-ionised pellet
+destroys the probe. The scenario is explicitly exotic and speculative.
 
 ### `ionDrive`
 
@@ -174,7 +219,7 @@ Fields:
 - `location` is `current` (default), `perihelion` / `periapsis`, `aphelion` / `apoapsis`, or a true anomaly in degrees. `direction` is the tip velocity at release.
 - The engine logs `tether`: tip speed, payload Δv, facility recoil, and payload acceleration in g when the length is known. The payload Δv counts in `totalDeltaV_km_s`.
 
-The old `elements`, vector `deltaV`, and event `units` fields are rejected. The engine (`prototype/spacekit/engine.js`) models `burn`, `oberthBurn`, `gravityAssist`, `tetherRelease`, `solarSail`, `laserCavityBoost`, and `ionDrive`. It passes `hitchhike` through with a warning.
+The old `elements`, vector `deltaV`, and event `units` fields are rejected. The engine (`prototype/spacekit/engine.js`) models `burn`, `oberthBurn`, `gravityAssist`, `tetherRelease`, `solarSail`, `laserCavityBoost`, `ionDrive`, and `pelletStream`. It passes `hitchhike` through with a warning.
 
 ## Validation
 

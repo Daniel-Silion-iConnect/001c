@@ -12,6 +12,26 @@ const example = JSON.parse(readFileSync(new URL('./schema-example.json', import.
 const scenario = () => structuredClone(example);
 const near = (a, b, tolerance = 1e-9) => assert.ok(Math.abs(a - b) < tolerance, `${a} ≠ ${b}`);
 
+test('viewer validates pellet momentum inputs and retains the impulse across later legs', () => {
+  const doc = JSON.parse(readFileSync(new URL('./scenarios/scenario-f.json', import.meta.url)));
+  const ev = doc.events[0];
+  for (const extra of [{ pelletMass_kg: 0 }, { pelletCount: 0 }, { pelletCount: 1.5 },
+    { pelletCount: Number.MAX_SAFE_INTEGER + 1 }, { relativeVelocity_km_s: Infinity },
+    { probeMass_kg: -1 }, { momentumEfficiency: -0.1 }, { momentumEfficiency: 1.1 },
+    { direction: 'inward' }]) {
+    doc.events = [{ ...ev, ...extra }];
+    assert.throws(() => validateScenario(doc), /pelletStream|direction/);
+  }
+  for (const direction of ['prograde', 'retrograde', 'radial', 'normal']) {
+    doc.events = [{ ...ev, direction }, { type: 'burn', deltaV_km_s: 1, direction: 'prograde' }];
+    const viewer = buildTrajectory(doc);
+    const engine = applyTrajectory(doc);
+    near(viewer.result.vInf_km_s, engine.vInf_km_s);
+    near(viewer.result.totalDeltaV_km_s, 301);
+    assert.ok(viewer.result.log.every(entry => entry.status === 'applied'));
+  }
+});
+
 test('viewer rejects invalid ion-drive power, decay, masses, efficiency and direction', () => {
   const doc = JSON.parse(readFileSync(new URL('./scenarios/scenario-e.json', import.meta.url)));
   const ev = doc.events[0];

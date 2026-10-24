@@ -56,6 +56,32 @@ and Earth escape require a finite-thrust follow-up model. Po-210 supply
 direct-charge conversion versus a few percent demonstrated remain the
 showstoppers. Concept E is labeled exotic and speculative, TRL 2–3.
 
+The [Concept F scenario](../../prototype/spacekit/scenarios/scenario-f.json)
+implements the chirped pellet check with `pelletStream` (see
+[event notation](../ORBITAL_NOTATION.md#pelletstream)). The matching
+`chirped_pellet_stream` function in `analysis/ideas_calc.py` extracts the
+original calculation without changing its reference inputs: **10,000 pellets
+of 0.375 g**, **3.75 kg** total, **2 kg probe mass**, **100 km/s** relative speed,
+and **80% momentum-transfer efficiency** give **300 km/s Δv**. The
+**317.7 km/s** in the table is solar v∞, not the stream's Δv. Reflected pellets
+are expelled, so the probe mass stays constant; launch speeds must rise to
+keep the relative speed fixed. The midpoint launch-energy sum over probe
+speeds 0–300 km/s gives **131.25 GJ**, excluding initial heliocentric motion,
+launcher inefficiency and ionisation energy.
+
+The reference starts at solar escape speed at 5 AU (**18.837 km/s**) and
+subtracts a conservative gravity-loss allowance μ☉ · (30 days) / (5 AU)²
+(**0.615 km/s**). The scenario encodes this already-debited **18.223 km/s**
+speed at the perihelion of an initial ellipse, then applies the full
+300 km/s prograde equivalent impulse at 5 AU. It therefore gives
+v∞ = √((v_escape + Δv − Δv_gravity)² − v_escape²) = **317.665 km/s**,
+within 0.001 km/s of Python's rounded solar constants. This is the original
+scalar speed budget, not a propagated 30-day powered flight; the preview
+shows only the resulting coast, with delivery to 5 AU outside the model.
+Aiming and ionising every pellet over AU scales remains the showstopper:
+one un-ionised pellet destroys the probe. Concept F is exotic and
+speculative, TRL 2.
+
 ## Seeded idea 1: antimatter
 - 1 kg at 300 km/s carries 4.5×10¹⁰ J. A beamed-core engine (v_e ≈ 0.33c, η ≈ 0.1 to jet) needs ~**2.5 mg** of antiprotons, a tiny propellant fraction.
 - Production: ~10 ng/yr worldwide (CERN AD/ELENA) → 2.5×10⁵ years. Storage: ~10³ trapped anti-H atoms or ~10⁵ p̄ for months in Penning traps.
