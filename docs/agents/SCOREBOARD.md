@@ -77,3 +77,7 @@ Round 7 review adjustments (coordinator code review of #48–#51): the physics m
 |----|-------|------|---|---|---|---|-------|
 | #55 | Codex | mobile viewer placement + card-default tests | 10 | 10 | 10 | 30 | 45vh viewer under the headline; verified real-width shots |
 | #56 | Codex | exotic handler review follow-ups | 10 | 10 | 10 | 30 | Doppler cap enforced; shared validators |
+
+| PR | Agent | Task | Correct (10) | Autonomy (10) | Quality (10) | Total | Notes |
+|----|-------|------|---|---|---|---|-------|
+| #61 | Codex (gpt-6.1-sol high, full-access) | Concept F pellet material + narrative | 10 | 10 | 10 | 30 | 7 materials; Al recommended; spot-checked d, ionisation, gyroradius; honest ram-vs-magnetic-pressure caveat; 6 tests |
