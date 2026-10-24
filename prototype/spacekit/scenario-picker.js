@@ -11,6 +11,7 @@ export function pickerOptions(index) {
     title: entry.category === 'exotic'
       ? `${entry.summary ?? ''} Feasibility: ${entry.feasibility} Showstopper: ${entry.showstopper}`
       : entry.summary ?? '',
+    summary: entry.summary,
     category: entry.category, feasibility: entry.feasibility, showstopper: entry.showstopper
   }));
 }
@@ -59,5 +60,6 @@ export async function mountPicker() {
     input.value = select.value;
     input.form.requestSubmit();
   });
-  return { path: current, id: scenarioIdForPath(options, current, location.href) };
+  const id = scenarioIdForPath(options, current, location.href);
+  return { path: current, id, summary: options.find(option => option.id === id)?.summary };
 }

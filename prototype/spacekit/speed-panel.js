@@ -1,14 +1,15 @@
 import { buildSpeedSeries, targetProgress, SPEED_TARGET_KM_S } from './viewer-data.js';
+import { createDisclosureCard } from './disclosure-card.js';
 
 // A shadow root keeps this sidebar panel independent of the viewer's layout/theme.
 export function createSpeedPanel(model, onSelect) {
+  const card = createDisclosureCard('Speed after each step · v∞ (km/s)', 'speed-card');
   const element = document.createElement('section');
-  element.setAttribute('aria-label', 'Speed accumulation and target progress');
+  element.setAttribute('aria-label', 'Speed accumulation');
   const root = element.attachShadow({ mode: 'open' });
   root.innerHTML = `
     <style>
-      :host { display: block; margin: 20px 0; font: inherit; }
-      h2 { font-size: 14px; margin: 0 0 8px; }
+      :host { display: block; font: inherit; }
       p, ol { font-size: 12px; margin: 8px 0; }
       .muted { color: #9fb0c5; }
       .chart { overflow-x: auto; }
@@ -30,13 +31,15 @@ export function createSpeedPanel(model, onSelect) {
       button.skipped { color: #8b96a5; }
       button[aria-pressed="true"] { border-color: #6de2b4; }
       button:focus-visible { outline: 2px solid #6de2b4; outline-offset: 2px; }
-      progress { display: block; width: 100%; height: 10px; accent-color: #6de2b4; }
-      #gap { font-variant-numeric: tabular-nums; }
     </style>
-    <h2>Speed after each step · v∞ (km/s)</h2>
     <div class="chart"></div>
     <p class="muted">Hollow points mark bound orbits with no escape asymptote. Steps are in event order.</p>
     <ol aria-label="Speed by step"></ol>
+  `;
+  card.content.append(element);
+  const progressElement = document.createElement('section');
+  progressElement.setAttribute('aria-label', 'Progress toward 300 km/s');
+  progressElement.innerHTML = `
     <h2>Target · ${SPEED_TARGET_KM_S} km/s (≈0.1% c)</h2>
     <p id="gap"></p>
     <progress max="100" value="0" aria-label="Progress toward 300 km/s target" aria-describedby="gap"></progress>
@@ -81,12 +84,13 @@ export function createSpeedPanel(model, onSelect) {
   });
   root.querySelector('.chart').append(svg);
   return {
-    element,
+    element: card.element,
+    progressElement,
     select(index) {
       const step = series[index];
       const progress = targetProgress(step.vInf_km_s);
-      root.querySelector('#gap').textContent = `Step ${index} · ${progress.gap_km_s.toFixed(3)} km/s remaining · ${progress.percentReached.toFixed(2)}% reached${progress.bound ? ' · Bound orbit (no escape asymptote)' : ''}`;
-      root.querySelector('progress').value = progress.progressPercent;
+      progressElement.querySelector('#gap').textContent = `Step ${index} · ${progress.gap_km_s.toFixed(3)} km/s remaining · ${progress.percentReached.toFixed(2)}% reached${progress.bound ? ' · Bound orbit (no escape asymptote)' : ''}`;
+      progressElement.querySelector('progress').value = progress.progressPercent;
       points.forEach((point, i) => point.classList.toggle('selected', i === index));
       buttons.forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)));
     }
