@@ -142,6 +142,13 @@ speed gain is Δv = F · `duration_s` / `probeMass_kg`. The required `direction`
 uses the pre-event local vectors defined above. This speed gain counts in
 `totalDeltaV_km_s` even though energy and momentum come from external infrastructure.
 
+The engine enforces the analysis's Doppler cap:
+`recyclingFactor` ≤ c / (2 · v_final), with c and v_final in the same units.
+Here v_final is the shot's launcher-relative speed gain Δv, not the final
+heliocentric speed. For 280 km/s, the cap is about 535; Concept D's 300 passes.
+An excessive factor throws before the impulse is applied. This bound does not
+simulate the time-dependent optical losses within an allowed shot.
+
 The engine applies this integrated thrust at the current launch position; it
 does not propagate a finite-duration powered leg. Constant power, recycling
 and probe mass, an effectively fixed recoil anchor, and perfect beam capture

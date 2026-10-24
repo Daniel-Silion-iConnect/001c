@@ -237,6 +237,26 @@ print(json.dumps(calc['laser_cavity_boost'](ev['power_MW'], ev['duration_s'], ev
   assert.equal(out.log[0].status, 'applied');
 });
 
+test('cavity recycling factor obeys the Doppler cap at the launcher-relative final speed', () => {
+  const doc = JSON.parse(readFileSync(new URL('./scenarios/scenario-d.json', import.meta.url)));
+  const shot = doc.events[0];
+  const finalSpeed_km_s = 280;
+  near(C_KM_S / (2 * finalSpeed_km_s), 535, 0.5, 'Doppler cap');
+  // Hold the speed gain fixed while varying reflections, to isolate the cap.
+  for (const recyclingFactor of [300, 535, 536, 600]) {
+    const ev = { ...shot, recyclingFactor, power_MW: shot.power_MW * 300 / recyclingFactor };
+    if (recyclingFactor <= 535) {
+      near(applyEvents(circular1AU, [ev]).totalDeltaV_km_s, finalSpeed_km_s, 1e-10);
+    } else {
+      assert.throws(() => applyEvents(circular1AU, [ev]), {
+        name: 'RangeError', message: /recyclingFactor exceeds Doppler cap/
+      });
+    }
+  }
+  // At unchanged power, more reflections also increase speed and lower the cap.
+  assert.throws(() => applyEvents(circular1AU, [{ ...shot, recyclingFactor: 500 }]), /Doppler cap/);
+});
+
 test('cavity thrust scales with power, duration, reflections and inverse mass in each local direction', () => {
   const shot = { type: 'laserCavityBoost', power_MW: 10, duration_s: 60, recyclingFactor: 20, probeMass_kg: 5, direction: 'prograde' };
   const baseline = applyEvents(circular1AU, [shot]).totalDeltaV_km_s;

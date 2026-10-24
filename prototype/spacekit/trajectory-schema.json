@@ -693,7 +693,7 @@
     },
     "ionDrive": {
       "type": "object",
-      "description": "Constant-Isp ion drive powered by exponential radioactive decay. All future jet energy limits propellant use; rocket delta-v is an equivalent impulse at the start. Engine requires wetMass_kg > dryMass_kg.",
+      "description": "Constant-Isp ion drive powered by exponential radioactive decay. Infinite-time decay-energy upper bound: all future jet energy limits propellant use; rocket delta-v is an equivalent impulse at the start, not a finite-thrust trajectory. Engine requires wetMass_kg > dryMass_kg.",
       "properties": {
         "id": {
           "type": "string",
