@@ -1,5 +1,5 @@
 // Browser/Node helpers. The viewer adapts schema inputs without changing the engine.
-import { AU_KM, C_KM_S, MU, applyEvents, stateToElements } from './engine.js';
+import { AU_KM, C_KM_S, MU, applyEvents, elementsToState, stateToElements } from './engine.js';
 
 export function validateScenario(doc) {
   const require = (condition, message) => {
@@ -114,4 +114,68 @@ export function speedText(vInf) {
   return vInf === null
     ? { speed: 'Bound orbit', percent: '— (no escape asymptote)' }
     : { speed: `${vInf.toFixed(3)} km/s`, percent: `${(100 * vInf / C_KM_S).toFixed(6)}% of c` };
+}
+
+// Time from periapsis in seconds. Angles here are radians, unlike schema angles.
+function timeFromAnomaly(nu, k, mu) {
+  if (!Number.isFinite(k.a)) {
+    const d = Math.tan(nu / 2);
+    return Math.sqrt(k.p ** 3 / mu) / 2 * (d + d ** 3 / 3); // Barker's equation
+  }
+  const n = Math.sqrt(mu / Math.abs(k.a) ** 3);
+  if (k.e < 1) {
+    const E = 2 * Math.atan2(Math.sqrt(1 - k.e) * Math.sin(nu / 2),
+      Math.sqrt(1 + k.e) * Math.cos(nu / 2));
+    return (E - k.e * Math.sin(E)) / n;
+  }
+  const H = 2 * Math.atanh(Math.sqrt((k.e - 1) / (k.e + 1)) * Math.tan(nu / 2));
+  return (k.e * Math.sinh(H) - H) / n;
+}
+
+/** Preview complete conics in leg order, using their sampled endpoints as limits.
+ * These are independent conic previews, not scheduled event-to-event transfers.
+ * Ellipses cover one period; open legs cover the engine's radius-capped arc.
+ */
+export function buildPlayback(model) {
+  let duration_s = 0;
+  const legs = model.legs.map(leg => {
+    const mu = MU[leg.centralBody];
+    const k = stateToElements(leg.finalState.r_km, leg.finalState.v_km_s, mu);
+    const points = leg.ephemerisPoints;
+    if (points.length < 2) throw new Error('Playback needs at least two ephemeris samples per leg.');
+    const startNu = points[0].nu_deg * Math.PI / 180;
+    const endNu = points.at(-1).nu_deg * Math.PI / 180;
+    const periapsisStart_s = timeFromAnomaly(startNu, k, mu);
+    const legDuration_s = timeFromAnomaly(endNu, k, mu) - periapsisStart_s;
+    if (!Number.isFinite(legDuration_s) || legDuration_s < 0) throw new Error('Invalid conic playback duration.');
+    const start_s = duration_s;
+    duration_s += legDuration_s;
+    return { k, mu, startNu, endNu, periapsisStart_s, start_s, duration_s: legDuration_s, end_s: duration_s };
+  });
+  if (!legs.length) throw new Error('Playback needs at least one leg.');
+  return { legs, duration_s };
+}
+
+/** Exact two-body position at a clamped preview time; shared by both renderers. */
+export function playbackAt(playback, time_s) {
+  if (!Number.isFinite(time_s)) throw new Error('Playback time must be finite.');
+  const elapsed_s = Math.max(0, Math.min(playback.duration_s, time_s));
+  const index = playback.legs.findIndex((leg, i) => elapsed_s < leg.end_s || i === playback.legs.length - 1);
+  const leg = playback.legs[index];
+  const legTime_s = elapsed_s - leg.start_s;
+  const t = leg.periapsisStart_s + legTime_s;
+  let nu;
+  // Preserve endpoints exactly, including the two representations of apoapsis.
+  if (legTime_s <= 0) nu = leg.startNu;
+  else if (elapsed_s >= leg.end_s) nu = leg.endNu;
+  else if (!Number.isFinite(leg.k.a)) {
+    const b = 2 * t / Math.sqrt(leg.k.p ** 3 / leg.mu);
+    const d = 2 * Math.sinh(Math.asinh(1.5 * b) / 3);
+    nu = 2 * Math.atan(d);
+  } else {
+    const mean = t * Math.sqrt(leg.mu / Math.abs(leg.k.a) ** 3);
+    nu = trueAnomalyFromMean(mean * 180 / Math.PI, leg.k.e) * Math.PI / 180;
+  }
+  const state = elementsToState({ ...leg.k, nu }, leg.mu);
+  return { index, elapsed_s, legTime_s, position: state.r.map(x => x / AU_KM) };
 }

@@ -8,6 +8,7 @@ export function canvasView(host, model, labels, centralBody) {
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('This browser cannot create a 2D canvas.');
   let selected = model.legs.length - 1;
+  let probePosition = null;
   // An oblique projection keeps out-of-plane legs visible in the fallback.
   const project = ([x, y, z]) => [x + 0.35 * z, y + 0.2 * z];
   const bounds = [0, 0, 0, 0];
@@ -56,13 +57,23 @@ export function canvasView(host, model, labels, centralBody) {
       labels[index].style.top = `${y - 16}px`;
       labels[index].hidden = false;
     });
+    if (probePosition) {
+      const [x, y] = screen(probePosition);
+      ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#080f1b'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillText('Probe', x + 10, y + 16);
+    }
     const barAU = 10 ** Math.floor(Math.log10(width * 0.15 / scale));
     ctx.strokeStyle = '#9fb0c5'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(20, 28); ctx.lineTo(20 + barAU * scale, 28); ctx.stroke();
     ctx.fillStyle = '#9fb0c5'; ctx.fillText(`${barAU.toPrecision(2)} AU`, 20, 20);
   };
   const observer = new ResizeObserver(draw); observer.observe(host); draw();
-  return { select(index) { selected = index; draw(); }, dispose() { observer.disconnect(); canvas.remove(); } };
+  return {
+    select(index) { selected = index; draw(); },
+    setProbe(position) { probePosition = position; draw(); },
+    dispose() { observer.disconnect(); canvas.remove(); }
+  };
 }
 
 export function threeView(host, model, labels, centralBody, THREE, OrbitControls, onContextLost) {
@@ -95,6 +106,12 @@ export function threeView(host, model, labels, centralBody, THREE, OrbitControls
     const dot = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: legColor(i + 1) }));
     dot.position.set(...marker.position); scene.add(dot); return dot;
   });
+  // A screen-sized point stays visible at every camera zoom level.
+  const probeGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3()]);
+  const probe = new THREE.Points(probeGeometry, new THREE.PointsMaterial({
+    color: '#ffffff', size: 12, sizeAttenuation: false, depthTest: false
+  }));
+  probe.visible = false; probe.renderOrder = 2; scene.add(probe);
   host.replaceChildren(renderer.domElement);
   renderer.domElement.setAttribute('aria-label', `3D orbit legs around ${centralBody}, coordinates in AU`);
   renderer.domElement.addEventListener('webglcontextlost', (event) => { event.preventDefault(); onContextLost(); }, { once: true });
@@ -120,6 +137,7 @@ export function threeView(host, model, labels, centralBody, THREE, OrbitControls
     });
   });
   return {
+    setProbe(position) { probe.position.set(...position); probe.visible = true; },
     select(index) {
       lines.forEach((line, i) => { line.material.opacity = i === index ? 1 : 0.3; line.renderOrder = i === index ? 1 : 0; });
     },

@@ -769,6 +769,9 @@ function applyTrajectory(doc, options = {}) {
 /** Sample n points along a conic: { nu_deg, r_AU: [x,y,z], v_km_s: [x,y,z] }. */
 function sampleConic(k, mu, n, maxRadius_AU) {
   if (!n || n < 2) return [];
+  // Energy classification can identify a parabola with e a few ulps below 1.
+  // Use the parabolic value so it stays an open, radius-capped preview arc.
+  if (!Number.isFinite(k.a)) k = { ...k, e: 1 };
   let nuMax;
   if (k.e < 1) {
     nuMax = Math.PI;

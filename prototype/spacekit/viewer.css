@@ -20,6 +20,12 @@ dl { margin: 22px 0 12px; }
 dd { font-size: 23px; margin: 0 0 12px; font-variant-numeric: tabular-nums; }
 #percent { font-size: 19px; color: #6de2b4; }
 #context, #summary, .muted, details { font-size: 12px; color: #9fb0c5; }
+.playback-controls { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: center; margin-top: 16px; }
+.playback-controls button { grid-row: span 2; }
+.playback-controls label { margin: 0; }
+#time { padding: 0; accent-color: #6de2b4; }
+#playback-time { font-size: 12px; color: #9fb0c5; font-variant-numeric: tabular-nums; }
+button:disabled, input:disabled { opacity: .5; cursor: default; }
 #events { padding: 0; list-style: none; }
 #events li { margin: 6px 0; }
 #events button { width: 100%; text-align: left; font-size: 12px; overflow-wrap: anywhere; border-left: 3px solid var(--leg-color); }
