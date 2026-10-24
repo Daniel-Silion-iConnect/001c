@@ -46,3 +46,13 @@ Process notes: Antigravity's opus quota ran out after ~2 tasks (reset ~4.5 h). C
 |----|-------|------|---|---|---|---|-------|
 | #31 | Codex (gpt-6.1-sol high, full-access) | travel-time panel | 10 | 10 | 10 | 30 | Constants and spot checks correct; mobile-readable; sources doc; ~5 min |
 | #34 | Codex (gpt-6.1-sol high, full-access) | ring-anchored labels + friendly times | 10 | 10 | 9 | 29 | Leader-line labels; "12,000 yr" format; ~6 min |
+
+## Brainstorm: exotic propulsion (issue #35, 2026-10-24)
+
+Scored on creativity (10) and numerical accuracy (10), checked by `analysis/ideas_calc.py`.
+
+| Agent (model) | Ideas | Creativity (10) | Accuracy (10) | Total (20) | Notes |
+|---|---|---|---|---|---|
+| Claude (claude-opus-5-5 medium) | Photon-recycling cavity catapult (307 km/s); Po-210 direct-charge ion drive (317 km/s Δv); lunar-anchor add-on | 9 | 10 | 19 | Every number within 1%; candid showstoppers; best lunar add-on (≥560 t recoil anchor saved) |
+| Codex (gpt-6.1-sol high) | Chirped pellet slipstream (318); solar-wind bank shot (371) | 9 | 9 | 18 | Clean derivations with sources; pellet energy 150 vs 131 GJ (−13%) |
+| Antigravity (gemini-4-argon-medium) | FFRE perihelion burn (241); coronal laser ablation (240/299); MagLIF kicker (claimed 312); 3 lunar add-ons | 8 | 4 | 12 | Prolific and inventive, but MagLIF v_e off ×32, perigee-dive gain +28%, unphysical inbound v∞, missed a 7 km aperture; riff gains unverifiable |
