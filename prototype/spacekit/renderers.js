@@ -13,14 +13,80 @@ function circlePoints(radius_AU, count = 128) {
 }
 
 function placeLabel(label, baseX, baseY, placed) {
-  let x = baseX, y = baseY;
-  while (placed.some(p => Math.hypot(x - p.x, y - p.y) < 26)) x += 26;
-  placed.push({ x, y });
-  label.style.left = `${x}px`;
-  label.style.top = `${y}px`;
+  const width = label.offsetWidth + 6, height = label.offsetHeight + 6;
+  const host = label.parentElement;
+  // Search around the event, keeping buttons inside the plot and clear of annotations.
+  for (let ring = 0; ring < 30; ring++) {
+    for (let dy = -ring; dy <= ring; dy++) for (let dx = -ring; dx <= ring; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
+      const x = Math.max(width / 2, Math.min(host.clientWidth - width / 2, baseX + dx * 26));
+      const y = Math.max(height / 2, Math.min(host.clientHeight - height / 2, baseY + dy * 26));
+      const rect = { x: x - width / 2, y: y - height / 2, width, height };
+      if (placed.some(p => rect.x < p.x + p.width && rect.x + width > p.x
+        && rect.y < p.y + p.height && rect.y + height > p.y)) continue;
+      placed.push(rect);
+      label.style.left = `${x}px`;
+      label.style.top = `${y}px`;
+      return;
+    }
+  }
 }
 
-export function canvasView(host, model, labels, centralBody) {
+// HTML annotations retain their CSS pixel size in either projection and at every zoom.
+function sceneLabels(host, centralBody, referenceOrbits) {
+  const layer = document.createElement('div');
+  layer.className = 'scene-labels';
+  const marker = document.createElement('span');
+  marker.className = 'body-marker'; marker.setAttribute('aria-hidden', 'true');
+  layer.append(marker);
+  const annotations = [
+    { text: centralBody, position: [0, 0, 0], body: true },
+    ...referenceOrbits.map(ref => ({ text: `${ref.name} ${ref.radius_AU} AU`, position: [0, ref.radius_AU, 0] }))
+  ].map(annotation => {
+    const label = document.createElement('span');
+    label.className = `scene-label${annotation.body ? ' body-label' : ''}`;
+    label.textContent = annotation.text; layer.append(label);
+    return { ...annotation, label };
+  });
+  host.append(layer);
+  return {
+    update(screen) {
+      // Leave room for the renderer instructions along the bottom of the plot.
+      const placed = [{ x: 0, y: host.clientHeight - 64, width: host.clientWidth, height: 64 }];
+      for (const { label, position, body } of annotations) {
+        const [px, py, visible = true] = screen(position);
+        label.hidden = !visible;
+        if (body) {
+          marker.hidden = !visible;
+          marker.style.left = `${px}px`; marker.style.top = `${py}px`;
+          if (visible) placed.push({ x: px - 11, y: py - 11, width: 22, height: 22 });
+        }
+        if (!visible) continue;
+        const width = label.offsetWidth, height = label.offsetHeight;
+        const x = Math.max(4, Math.min(host.clientWidth - width - 4, px + 13));
+        const preferredY = py + (body ? -34 : 12);
+        let y = 4;
+        // Labels near the Sun can be closer than a text line when fitting a 30 AU path.
+        // Search above and below the anchor, also when the orbit is near a plot edge.
+        for (let step = 0; step < 30; step++) {
+          const offset = Math.ceil(step / 2) * (height + 4) * (step % 2 ? 1 : -1);
+          y = Math.max(4, Math.min(host.clientHeight - height - 4, preferredY + offset));
+          if (!placed.some(p => x < p.x + p.width + 4 && x + width + 4 > p.x
+            && y < p.y + p.height + 4 && y + height + 4 > p.y)) break;
+        }
+        label.style.left = `${x}px`; label.style.top = `${y}px`;
+        placed.push({ x, y, width, height });
+      }
+      return placed;
+    },
+    dispose() { layer.remove(); }
+  };
+}
+
+// `arcs` are the continuous event-to-event paths; full conics are an optional faint overlay.
+const CONIC_OVERLAY_OPACITY = 0.2;
+
+export function canvasView(host, model, labels, centralBody, arcs) {
   const canvas = document.createElement('canvas');
   canvas.setAttribute('aria-label', 'Sampled orbit legs, oblique 2D projection in AU');
   host.replaceChildren(canvas);
@@ -28,12 +94,15 @@ export function canvasView(host, model, labels, centralBody) {
   if (!ctx) throw new Error('This browser cannot create a 2D canvas.');
   let selected = model.legs.length - 1;
   let probePosition = null;
+  let showConics = false;
   const referenceOrbits = !centralBody || centralBody === 'Sun' ? REFERENCE_ORBITS : [];
   const isSkippedLeg = (index) => index > 0 && model.markers[index - 1]?.status === 'skipped';
+  const annotations = sceneLabels(host, centralBody, referenceOrbits);
   // An oblique projection keeps out-of-plane legs visible in the fallback.
   const project = ([x, y, z]) => [x + 0.35 * z, y + 0.2 * z];
   const bounds = [0, 0, 0, 0];
-  const positions = model.legs.flatMap(leg => leg.ephemerisPoints.map(p => p.r_AU));
+  // Fit the continuous path; the optional full-conic overlay may extend past the frame.
+  const positions = arcs.flatMap(arc => arc.points.map(p => p.r_AU));
   positions.push(...model.markers.map(marker => marker.position));
   for (const ref of referenceOrbits) {
     positions.push([ref.radius_AU, 0, 0], [-ref.radius_AU, 0, 0], [0, ref.radius_AU, 0], [0, -ref.radius_AU, 0]);
@@ -70,28 +139,35 @@ export function canvasView(host, model, labels, centralBody) {
       ctx.strokeStyle = '#9fb0c5'; ctx.globalAlpha = 0.28; ctx.lineWidth = 1.1;
       ctx.stroke();
       ctx.setLineDash([]);
-      const [lx, ly] = screen([ref.radius_AU * Math.SQRT1_2, -ref.radius_AU * Math.SQRT1_2, 0]);
-      ctx.globalAlpha = 0.5; ctx.fillStyle = '#9fb0c5'; ctx.font = '11px system-ui';
-      ctx.fillText(`${ref.name} (${ref.radius_AU} AU)`, lx + 6, ly + 4);
     }
     ctx.restore();
     // Draw the selected leg last and omit unselected skipped duplicate legs so event colors stay accurate.
     const order = model.legs.map((_, i) => i).filter(i => i !== selected && !isSkippedLeg(i)).concat(selected);
-    for (const index of order) {
-      const leg = model.legs[index];
+    const stroke = (points) => {
       ctx.beginPath();
-      leg.ephemerisPoints.forEach((p, j) => {
+      points.forEach((p, j) => {
         const [x, y] = screen(p.r_AU);
         if (j === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       });
-      if (leg.bound) ctx.closePath();
-      ctx.strokeStyle = legColor(index); ctx.globalAlpha = index === selected ? 1 : 0.72;
+    };
+    if (showConics) {
+      for (const index of order) {
+        const leg = model.legs[index];
+        stroke(leg.ephemerisPoints);
+        if (leg.bound) ctx.closePath();
+        ctx.strokeStyle = legColor(index); ctx.globalAlpha = CONIC_OVERLAY_OPACITY;
+        ctx.lineWidth = 1; ctx.stroke();
+      }
+    }
+    for (const index of order) {
+      stroke(arcs[index].points);
+      ctx.strokeStyle = legColor(index); ctx.globalAlpha = index === selected ? 1 : 0.8;
       ctx.lineWidth = index === selected ? 3 : 1.8; ctx.stroke();
     }
     ctx.globalAlpha = 1;
-    const [sx, sy] = screen([0, 0, 0]);
-    ctx.fillStyle = '#ffd68a'; ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI * 2); ctx.fill();
-    ctx.font = '12px system-ui'; ctx.fillText(centralBody, sx + 10, sy - 8);
+    const placed = annotations.update(screen);
+    placed.push({ x: 12, y: 6, width: 110, height: 30 }); // Keep the scale bar readable.
+    ctx.font = '14px system-ui';
     const markerOrder = model.markers.map((_, i) => i).filter(i => i + 1 !== selected);
     if (selected > 0 && selected <= model.markers.length) markerOrder.push(selected - 1);
     for (const index of markerOrder) {
@@ -101,11 +177,10 @@ export function canvasView(host, model, labels, centralBody) {
       ctx.fillStyle = legColor(index + 1);
       ctx.beginPath(); ctx.arc(x, y, active ? 4.5 : 3.5, 0, Math.PI * 2); ctx.fill();
     }
-    const placed = [];
     model.markers.forEach((marker, index) => {
       const [x, y] = screen(marker.position);
-      placeLabel(labels[index], x + 14, y - 16, placed);
       labels[index].hidden = false;
+      placeLabel(labels[index], x + 14, y - 16, placed);
     });
     if (probePosition) {
       const [x, y] = screen(probePosition);
@@ -122,11 +197,12 @@ export function canvasView(host, model, labels, centralBody) {
   return {
     select(index) { selected = index; draw(); },
     setProbe(position) { probePosition = position; draw(); },
-    dispose() { observer.disconnect(); canvas.remove(); }
+    setShowConics(value) { showConics = Boolean(value); draw(); },
+    dispose() { observer.disconnect(); annotations.dispose(); canvas.remove(); }
   };
 }
 
-export function threeView(host, model, labels, centralBody, THREE, OrbitControls, onContextLost) {
+export function threeView(host, model, labels, centralBody, THREE, OrbitControls, onContextLost, arcs) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#080f1b');
@@ -217,55 +293,47 @@ export function threeView(host, model, labels, centralBody, THREE, OrbitControls
     refLine.renderOrder = 0;
     scene.add(refLine);
     ribbons.push(createRibbon(circle, true, '#9fb0c5', 0.2, 0.75, 0));
-    const labelCanvas = document.createElement('canvas');
-    labelCanvas.width = 220; labelCanvas.height = 44;
-    const labelCtx = labelCanvas.getContext('2d');
-    if (labelCtx && THREE.CanvasTexture && THREE.Sprite && THREE.SpriteMaterial) {
-      labelCtx.font = '500 22px system-ui, sans-serif';
-      labelCtx.fillStyle = '#9fb0c5';
-      labelCtx.textAlign = 'center';
-      labelCtx.textBaseline = 'middle';
-      labelCtx.fillText(`${ref.name} · ${ref.radius_AU} AU`, 110, 22);
-      const texture = new THREE.CanvasTexture(labelCanvas);
-      const spriteMat = new THREE.SpriteMaterial({
-        map: texture, transparent: true, opacity: 0.65, depthTest: false, sizeAttenuation: false
-      });
-      const sprite = new THREE.Sprite(spriteMat);
-      sprite.center.set(0.5, 1.15);
-      sprite.position.set(0, -ref.radius_AU, 0);
-      sprite.scale.set(0.11, 0.022, 1);
-      sprite.renderOrder = 0;
-      scene.add(sprite);
-    }
   }
 
-  const legs = model.legs.map((leg, index) => {
-    const points = leg.ephemerisPoints.map(p => {
+  // Faint full conics, hidden until the 'Show full conics' toggle enables them.
+  const conics = model.legs.map((leg, index) => {
+    const points = leg.ephemerisPoints.map(p => new THREE.Vector3(...p.r_AU));
+    // Close elliptic orbits only; open conics must stay polylines.
+    if (leg.bound) points.pop();
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({
+      color: legColor(index), transparent: true, opacity: CONIC_OVERLAY_OPACITY, depthTest: false
+    });
+    const line = leg.bound ? new THREE.LineLoop(geometry, material) : new THREE.Line(geometry, material);
+    line.renderOrder = 0; line.visible = false;
+    scene.add(line);
+    return line;
+  });
+  // The continuous event-to-event path: each leg is an open arc ending at the next event.
+  const legs = arcs.map((arc, index) => {
+    const points = arc.points.map(p => {
       radius = Math.max(radius, Math.hypot(...p.r_AU));
       return new THREE.Vector3(...p.r_AU);
     });
-    // Close elliptic orbits only; open conics must stay polylines.
-    if (leg.bound) points.pop();
     const color = legColor(index);
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const material = new THREE.LineBasicMaterial({
       color, transparent: true, opacity: 0.82, linewidth: 2, depthTest: false
     });
-    const line = leg.bound ? new THREE.LineLoop(geometry, material) : new THREE.Line(geometry, material);
+    const line = new THREE.Line(geometry, material);
     line.renderOrder = 1;
     scene.add(line);
-    const ribbon = createRibbon(points, leg.bound, color, 0.62, 1.15, 1);
+    const ribbon = createRibbon(points, false, color, 0.62, 1.15, 1);
     ribbons.push(ribbon);
     return { line, ribbon };
   });
+  let showConics = false;
 
   for (const marker of model.markers) radius = Math.max(radius, Math.hypot(...marker.position));
   radius = Math.max(radius, 1e-8);
   camera.near = radius / 10000; camera.far = radius * 1000;
   controls.minDistance = radius / 1000; controls.maxDistance = radius * 100;
   const geometry = new THREE.SphereGeometry(radius / 170, 14, 10);
-  const body = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: '#ffd68a', depthTest: false }));
-  body.name = centralBody; body.renderOrder = 3; scene.add(body);
   const dots = model.markers.map((marker, i) => {
     const dot = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: legColor(i + 1), depthTest: false }));
     dot.position.set(...marker.position); dot.renderOrder = 3; scene.add(dot); return dot;
@@ -277,6 +345,7 @@ export function threeView(host, model, labels, centralBody, THREE, OrbitControls
   }));
   probe.visible = false; probe.renderOrder = 5; scene.add(probe);
   host.replaceChildren(renderer.domElement);
+  const annotations = sceneLabels(host, centralBody, referenceOrbits);
   renderer.domElement.setAttribute('aria-label', `3D orbit legs around ${centralBody}, coordinates in AU`);
   renderer.domElement.addEventListener('webglcontextlost', (event) => { event.preventDefault(); onContextLost(); }, { once: true });
   let fitted = false;
@@ -296,7 +365,11 @@ export function threeView(host, model, labels, centralBody, THREE, OrbitControls
     const pixelScale = (2 * Math.tan(camera.fov * Math.PI / 360)) / Math.max(1, host.clientHeight);
     for (const ribbon of ribbons) ribbon.update(camera.position, pixelScale);
     renderer.render(scene, camera);
-    const placed = [];
+    const placed = annotations.update(position => {
+      projection.set(...position).project(camera);
+      return [(projection.x + 1) * host.clientWidth / 2, (1 - projection.y) * host.clientHeight / 2,
+        Math.abs(projection.x) <= 1 && Math.abs(projection.y) <= 1 && Math.abs(projection.z) <= 1];
+    });
     dots.forEach((dot, index) => {
       projection.copy(dot.position).project(camera);
       const hidden = Math.abs(projection.x) > 1 || Math.abs(projection.y) > 1 || Math.abs(projection.z) > 1;
@@ -310,6 +383,10 @@ export function threeView(host, model, labels, centralBody, THREE, OrbitControls
   });
   return {
     setProbe(position) { probe.position.set(...position); probe.visible = true; },
+    setShowConics(value) {
+      showConics = Boolean(value);
+      conics.forEach((line, i) => { line.visible = showConics && !isSkippedLeg(i); });
+    },
     select(index) {
       legs.forEach(({ line, ribbon }, i) => {
         const active = i === index;
@@ -335,7 +412,7 @@ export function threeView(host, model, labels, centralBody, THREE, OrbitControls
         object.material?.map?.dispose();
         object.material?.dispose();
       });
-      renderer.dispose(); renderer.domElement.remove();
+      annotations.dispose(); renderer.dispose(); renderer.domElement.remove();
     }
   };
 }

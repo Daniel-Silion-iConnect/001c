@@ -1,4 +1,4 @@
-import { buildTrajectory, buildPlayback, playbackAt, speedText } from './viewer-data.js';
+import { buildTrajectory, buildContinuousArcs, buildContinuousPlayback, playbackAt, speedText } from './viewer-data.js';
 import { canvasView, threeView, legColor } from './renderers.js';
 import { createSpeedPanel } from './speed-panel.js';
 
@@ -13,7 +13,9 @@ async function start() {
   try { doc = await response.json(); }
   catch { throw new Error(`Cannot parse ${scenario}: expected valid JSON.`); }
   const model = buildTrajectory(doc);
-  const playback = buildPlayback(model);
+  // Draw and play each leg only from its event to the next, so the path reads as one trajectory.
+  const arcs = buildContinuousArcs(model);
+  const playback = buildContinuousPlayback(model, arcs);
   const title = doc.name || 'Untitled trajectory';
   element('title').textContent = title;
   document.title = `001c — ${title}`;
@@ -54,13 +56,21 @@ async function start() {
     element('play').textContent = value ? 'Pause' : current.elapsed_s >= playback.duration_s ? 'Replay' : 'Play';
     element('play').setAttribute('aria-pressed', String(value));
   };
-  const select = index => { seek(playback.legs[index].start_s); setPlaying(playing); };
+  const select = index => {
+    seek(playback.legs[index].start_s);
+    // Zero-length legs (skipped or co-located events) still select the requested leg.
+    if (selected !== index) inspect(index);
+    setPlaying(playing);
+  };
+  element('show-conics').addEventListener('change', event => view?.setShowConics(event.target.checked));
   const speedPanel = createSpeedPanel(model, select);
   element('context').after(speedPanel.element);
   element('time').max = String(playback.duration_s);
   element('time').disabled = element('play').disabled = playback.duration_s === 0;
   element('time').addEventListener('input', event => {
-    seek(Number(event.target.value));
+    // Range inputs round long decimal values; still reach the exact final event.
+    const time_s = Number(event.target.value);
+    seek(time_s >= playback.duration_s - 1e-6 ? playback.duration_s : time_s);
     setPlaying(false);
   });
   element('play').addEventListener('click', () => {
@@ -108,8 +118,9 @@ async function start() {
   element('hud').hidden = false;
   const fallback = (reason) => {
     view?.dispose();
-    view = canvasView(element('plot'), model, labels, doc.centralBody);
+    view = canvasView(element('plot'), model, labels, doc.centralBody, arcs);
     view.select(selected);
+    view.setShowConics(element('show-conics').checked);
     view.setProbe(current.position);
     element('view-note').textContent = `2D oblique projection · ${reason}`;
     element('viewport').dataset.renderer = 'canvas';
@@ -125,8 +136,9 @@ async function start() {
     ]);
     view.dispose(); view = null;
     view = threeView(element('plot'), model, labels, doc.centralBody, THREE, OrbitControls,
-      () => fallback('WebGL context lost.'));
+      () => fallback('WebGL context lost.'), arcs);
     view.select(selected);
+    view.setShowConics(element('show-conics').checked);
     view.setProbe(current.position);
     element('view-note').textContent = `${doc.centralBody} at origin · Drag to rotate · Scroll to zoom · Numbered markers select events`;
     element('viewport').dataset.renderer = 'three';

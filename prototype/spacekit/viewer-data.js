@@ -189,6 +189,96 @@ export function buildPlayback(model) {
   return { legs, duration_s };
 }
 
+const TWO_PI = 2 * Math.PI;
+
+/** Wrap an angle into [-π, π], leaving values already in range untouched. */
+function wrapToPi(angle) {
+  if (angle >= -Math.PI && angle <= Math.PI) return angle;
+  return angle - TWO_PI * Math.floor((angle + Math.PI) / TWO_PI);
+}
+
+/** Monotonic time from periapsis: an unwrapped elliptic anomaly adds whole periods. */
+function unwrappedTime(nu, k, mu) {
+  const wrapped = wrapToPi(nu);
+  const t = timeFromAnomaly(wrapped, k, mu);
+  if (wrapped === nu) return t;
+  const period = TWO_PI * Math.sqrt(Math.abs(k.a) ** 3 / mu);
+  return t + period * Math.round((nu - wrapped) / TWO_PI);
+}
+
+/** True anomaly (rad) of a position's direction, measured in a conic's perifocal frame. */
+export function anomalyOfPosition(k, mu, r_km) {
+  const P = elementsToState({ ...k, nu: 0 }, mu).r;
+  const Q = elementsToState({ ...k, nu: Math.PI / 2 }, mu).r;
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  return Math.atan2(dot(r_km, Q) / Math.hypot(...Q), dot(r_km, P) / Math.hypot(...P));
+}
+
+/** Largest outbound true anomaly (rad) on an open conic inside maxRadius_AU. */
+export function radiusCapAnomaly(k, maxRadius_AU) {
+  const e = Number.isFinite(k.a) ? k.e : 1;
+  const nuAsym = Math.acos(-1 / e);
+  const cosCap = (k.p / (maxRadius_AU * AU_KM) - 1) / e;
+  return cosCap <= -1 ? nuAsym * (1 - 1e-6) : Math.min(nuAsym * (1 - 1e-6), Math.acos(Math.min(1, cosCap)));
+}
+
+/** Anomaly span of one leg, flown forward in time from startNu to the next event.
+ * Ellipses wrap forward (endNu may exceed π); open conics never run backwards.
+ * Without a next event, open conics run to the radius cap and ellipses fly one period.
+ */
+export function legArcSpan(k, mu, startNu, nextPosition_km, maxRadius_AU = 30) {
+  const bound = Number.isFinite(k.a) && k.a > 0;
+  if (!nextPosition_km) {
+    return { startNu, endNu: bound ? startNu + TWO_PI : Math.max(startNu, radiusCapAnomaly(k, maxRadius_AU)) };
+  }
+  const target = anomalyOfPosition(k, mu, nextPosition_km);
+  let delta = wrapToPi(target - startNu);
+  if (Math.abs(delta) < 1e-9) delta = 0;
+  else if (bound && delta < 0) delta += TWO_PI;
+  else if (!bound) delta = Math.max(0, target - startNu);
+  return { startNu, endNu: startNu + delta };
+}
+
+/** Sample n points (n ≥ 2) along a conic between two anomalies, in AU. */
+export function sampleArc(k, mu, startNu, endNu, n = 129) {
+  if (!(n >= 2)) throw new Error('An arc needs at least two samples.');
+  return Array.from({ length: n }, (_, j) => {
+    const nu = startNu + (endNu - startNu) * j / (n - 1);
+    return { nu_deg: nu * 180 / Math.PI, r_AU: elementsToState({ ...k, nu }, mu).r.map(x => x / AU_KM) };
+  });
+}
+
+/** Continuous event-to-event arcs: leg i runs from its own event to event i + 1's
+ * position, and the last leg runs to the radius cap (or one period if bound).
+ * The full conics in model.legs[i].ephemerisPoints remain available as an overlay.
+ */
+export function buildContinuousArcs(model, options = {}) {
+  const { samples = 129, maxRadius_AU = 30 } = options;
+  if (!model.legs.length) throw new Error('Continuous arcs need at least one leg.');
+  return model.legs.map((leg, index) => {
+    const mu = leg.effectiveMu_km3_s2 ?? MU[leg.centralBody];
+    const k = stateToElements(leg.finalState.r_km, leg.finalState.v_km_s, mu);
+    const next = model.legs[index + 1]?.finalState.r_km;
+    const { startNu, endNu } = legArcSpan(k, mu, k.nu, next, maxRadius_AU);
+    return { index, k, mu, startNu, endNu, points: sampleArc(k, mu, startNu, endNu, samples) };
+  });
+}
+
+/** Playback that follows the continuous arcs, so the probe never jumps between legs. */
+export function buildContinuousPlayback(model, arcs = buildContinuousArcs(model)) {
+  let duration_s = 0;
+  const legs = arcs.map(({ k, mu, startNu, endNu }) => {
+    const periapsisStart_s = unwrappedTime(startNu, k, mu);
+    const legDuration_s = unwrappedTime(endNu, k, mu) - periapsisStart_s;
+    if (!Number.isFinite(legDuration_s) || legDuration_s < 0) throw new Error('Invalid arc playback duration.');
+    const start_s = duration_s;
+    duration_s += legDuration_s;
+    return { k, mu, startNu, endNu, periapsisStart_s, start_s, duration_s: legDuration_s, end_s: duration_s };
+  });
+  if (!legs.length) throw new Error('Playback needs at least one leg.');
+  return { legs, duration_s };
+}
+
 /** Exact two-body position at a clamped preview time; shared by both renderers. */
 export function playbackAt(playback, time_s) {
   if (!Number.isFinite(time_s)) throw new Error('Playback time must be finite.');
