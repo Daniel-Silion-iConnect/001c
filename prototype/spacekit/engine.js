@@ -439,25 +439,33 @@ function impulse(state, dv) {
 
 // ---------- event handlers ----------
 
+function requirePositiveFinite(ev, keys) {
+  for (const key of keys) {
+    if (!Number.isFinite(ev[key]) || ev[key] <= 0) {
+      throw new RangeError(`${ev.type} ${key} must be finite and positive`);
+    }
+  }
+}
+
+function requireSupportedDirection(ev) {
+  if (!['prograde', 'retrograde', 'radial', 'normal', 'radialOut'].includes(ev.direction)) {
+    throw new Error(`${ev.type} requires a supported direction`);
+  }
+}
+
 /** Ideal magnetic reflection of a chirped pellet stream. Pellets are expelled,
  * not accreted; relative speed and probe mass stay fixed. Integrate momentum
  * as an equivalent impulse, without propagating the powered flight.
  */
 function handlePelletStream(state, ev, entry) {
-  for (const key of ['pelletMass_kg', 'relativeVelocity_km_s', 'probeMass_kg']) {
-    if (!Number.isFinite(ev[key]) || ev[key] <= 0) {
-      throw new RangeError(`pelletStream ${key} must be finite and positive`);
-    }
-  }
+  requirePositiveFinite(ev, ['pelletMass_kg', 'relativeVelocity_km_s', 'probeMass_kg']);
   if (!Number.isSafeInteger(ev.pelletCount) || ev.pelletCount <= 0) {
     throw new RangeError('pelletStream pelletCount must be a positive safe integer');
   }
   if (!Number.isFinite(ev.momentumEfficiency) || ev.momentumEfficiency < 0 || ev.momentumEfficiency > 1) {
     throw new RangeError('pelletStream momentumEfficiency must satisfy 0 ≤ efficiency ≤ 1');
   }
-  if (!['prograde', 'retrograde', 'radial', 'normal', 'radialOut'].includes(ev.direction)) {
-    throw new Error('pelletStream requires a supported direction');
-  }
+  requireSupportedDirection(ev);
   const totalPelletMass_kg = ev.pelletMass_kg * ev.pelletCount;
   const dv = 2 * ev.momentumEfficiency * ev.relativeVelocity_km_s * totalPelletMass_kg / ev.probeMass_kg;
   // Closed form of ideas_calc.py's midpoint sum at speeds 0..Δv, relative to
@@ -481,20 +489,14 @@ function handlePelletStream(state, ev, entry) {
  * The exhaust speed is constant; this does not propagate a powered trajectory.
  */
 function handleIonDrive(state, ev, entry) {
-  for (const key of ['isp_s', 'power_W', 'halfLife_days', 'wetMass_kg', 'dryMass_kg']) {
-    if (!Number.isFinite(ev[key]) || ev[key] <= 0) {
-      throw new RangeError(`ionDrive ${key} must be finite and positive`);
-    }
-  }
+  requirePositiveFinite(ev, ['isp_s', 'power_W', 'halfLife_days', 'wetMass_kg', 'dryMass_kg']);
   for (const key of ['conversionEfficiency', 'thrusterEfficiency']) {
     if (!Number.isFinite(ev[key]) || ev[key] <= 0 || ev[key] > 1) {
       throw new RangeError(`ionDrive ${key} must satisfy 0 < efficiency ≤ 1`);
     }
   }
   if (ev.wetMass_kg <= ev.dryMass_kg) throw new RangeError('ionDrive wetMass_kg must exceed dryMass_kg');
-  if (!['prograde', 'retrograde', 'radial', 'normal', 'radialOut'].includes(ev.direction)) {
-    throw new Error('ionDrive requires a supported direction');
-  }
+  requireSupportedDirection(ev);
   const exhaustSpeed_m_s = ev.isp_s * G0_KM_S2 * 1e3;
   const decayTime_s = ev.halfLife_days * 86400 / Math.LN2;
   const initialJetPower_W = ev.power_W * ev.conversionEfficiency * ev.thrusterEfficiency;
@@ -521,23 +523,23 @@ function handleIonDrive(state, ev, entry) {
  * this is not finite-thrust propagation or an optical cavity simulation.
  */
 function handleLaserCavityBoost(state, ev, entry) {
-  for (const key of ['power_MW', 'duration_s', 'probeMass_kg']) {
-    if (!Number.isFinite(ev[key]) || ev[key] <= 0) {
-      throw new RangeError(`laserCavityBoost ${key} must be finite and positive`);
-    }
-  }
+  requirePositiveFinite(ev, ['power_MW', 'duration_s', 'probeMass_kg']);
   if (!Number.isFinite(ev.recyclingFactor) || ev.recyclingFactor < 1) {
     throw new RangeError('laserCavityBoost recyclingFactor must be finite and ≥ 1');
   }
-  if (!['prograde', 'retrograde', 'radial', 'normal', 'radialOut'].includes(ev.direction)) {
-    throw new Error('laserCavityBoost requires a supported direction');
-  }
+  requireSupportedDirection(ev);
   const circulatingPower_MW = ev.power_MW * ev.recyclingFactor;
   const force_N = 2 * circulatingPower_MW * 1e6 / (C_KM_S * 1e3);
   const acceleration_m_s2 = force_N / ev.probeMass_kg;
   const dv = acceleration_m_s2 * ev.duration_s / 1e3;
   if (![circulatingPower_MW, force_N, acceleration_m_s2, dv].every(Number.isFinite)) {
     throw new RangeError('laserCavityBoost parameters overflow the boost calculation');
+  }
+  // ideas_calc.py uses the final launcher-relative speed, i.e. this shot's Δv,
+  // rather than the heliocentric speed including the initial orbital motion.
+  const dopplerCap = C_KM_S / (2 * dv);
+  if (ev.recyclingFactor > dopplerCap) {
+    throw new RangeError(`laserCavityBoost recyclingFactor exceeds Doppler cap c/(2·v_final) = ${dopplerCap}`);
   }
   impulse(state, scale(directionVector(state, ev.direction), dv));
   entry.laserCavity = {
