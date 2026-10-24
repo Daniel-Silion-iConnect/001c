@@ -1,0 +1,40 @@
+{
+  "name": "Sample 001c Trajectory",
+  "description": "Initial state + sequence of events. Engine applies events and produces updated elements or ephemeris.",
+  "epoch": "2026-10-24T00:00:00Z",
+  "centralBody": "Sun",
+  "frame": "ICRS",
+  "initialElements": {
+    "type": "keplerian",
+    "a": 1.0,
+    "e": 0.0,
+    "i": 0.0,
+    "raan": 0.0,
+    "argp": 0.0,
+    "nu": 0.0,
+    "units": { "a": "AU", "angles": "deg" }
+  },
+  "events": [
+    {
+      "id": "earth-departure",
+      "type": "burn",
+      "deltaV_km_s": 3.0,
+      "direction": "prograde",
+      "notes": "Chemical stage"
+    },
+    {
+      "id": "solar-oberth",
+      "type": "oberthBurn",
+      "perihelion_AU": 0.1,
+      "deltaV_km_s": 5.0,
+      "notes": "Deep solar burn — Oberth multiplier applied by engine"
+    },
+    {
+      "id": "tether-1",
+      "type": "tetherRelease",
+      "deltaV_km_s": 2.5,
+      "notes": "Momentum exchange"
+    }
+  ],
+  "targetAsymptotic_km_s": 300
+}

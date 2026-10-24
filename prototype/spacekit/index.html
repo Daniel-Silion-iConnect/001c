@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>001c — Spacekit Trajectory Prototype</title>
+  <style>
+    html, body, #main-container { width: 100%; height: 100%; margin: 0; background: #000; }
+    #info { position: absolute; top: 10px; left: 10px; color: white; font-family: system-ui; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 6px; max-width: 320px; }
+  </style>
+</head>
+<body>
+  <div id="info">
+    <strong>001c Spacekit Skeleton</strong><br>
+    Solar system + sample probe orbit.<br>
+    Drag to rotate, scroll to zoom.<br>
+    Next: load events from JSON schema.
+  </div>
+  <div id="main-container"></div>
+
+  <script src="https://typpo.github.io/spacekit/build/spacekit.js"></script>
+  <script>
+    const viz = new Spacekit.Simulation(document.getElementById('main-container'), {
+      basePath: 'https://typpo.github.io/spacekit/src',
+      startPaused: false,
+      jdPerSecond: 50
+    });
+
+    viz.createStars();
+    viz.createObject('sun', Spacekit.SpaceObjectPresets.SUN);
+    viz.createObject('earth', Spacekit.SpaceObjectPresets.EARTH);
+    viz.createObject('mars', Spacekit.SpaceObjectPresets.MARS);
+    viz.createObject('jupiter', Spacekit.SpaceObjectPresets.JUPITER);
+
+    // Sample probe — elliptical for now (will become hyperbolic for 0.001c)
+    const probeEphem = new Spacekit.Ephem({
+      epoch: 2460600.5,
+      a: 1.8,
+      e: 0.4,
+      i: 5.0,
+      om: 30.0,
+      w: 60.0,
+      ma: 0.0
+    }, 'deg');
+
+    viz.createObject('001c-probe', {
+      labelText: '001c Probe (sample)',
+      ephem: probeEphem,
+      theme: { color: 0x00ff88 }
+    });
+  </script>
+</body>
+</html>
