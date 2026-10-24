@@ -2,10 +2,16 @@
 // Its first entry supplies the default for both the picker and the viewer.
 export const SCENARIO_INDEX = 'scenarios/index.json';
 
-/** Picker options ({ value, label, title }) in index order. */
+/** Picker options ({ id, value, label, title }) in index order. */
 export function pickerOptions(index) {
   if (!Array.isArray(index)) throw new Error(`${SCENARIO_INDEX} must be an array.`);
-  return index.map(entry => ({ value: `scenarios/${entry.file}`, label: entry.name, title: entry.summary ?? '' }));
+  return index.map(entry => ({ id: entry.id, value: `scenarios/${entry.file}`, label: entry.name, title: entry.summary ?? '' }));
+}
+
+// Match resolved URLs so explicit ./paths and absolute reference URLs work too.
+export function scenarioIdForPath(options, path, baseURL) {
+  const url = new URL(path, baseURL).href;
+  return options.find(option => new URL(option.value, baseURL).href === url)?.id;
 }
 
 export function selectScenario(options, search) {
@@ -37,5 +43,5 @@ export async function mountPicker() {
     input.value = select.value;
     input.form.requestSubmit();
   });
-  return current;
+  return { path: current, id: scenarioIdForPath(options, current, location.href) };
 }

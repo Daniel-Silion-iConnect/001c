@@ -25,6 +25,16 @@ for testing. Load another file with the form or
 `?scenario=other-trajectory.json` (paths resolve relative to the viewer). Absolute
 HTTP URLs also work if their server permits CORS.
 
+The expanded **Mission story** panel loads `narratives.json` and shows the project
+intro, the selected reference scenario's narrative, and an explanation of the
+current leg's event type. Leg 0 describes the initial orbit. Event buttons, chart
+steps, the leg selector, and playback all update the explanation. The STP Oberth
+event also shows its solar-thermal propulsion context; skipped events are marked
+as intended maneuvers. Reference narratives use IDs from `scenarios/index.json`.
+Custom scenarios fall back to their description. Missing text or an unavailable
+narrative file shows a short fallback without blocking the trajectory viewer.
+All story text stays expanded and wraps at mobile widths.
+
 Select a leg or numbered event to inspect its v∞ in km/s and percentage of c
 and move the white probe to that leg's preview start. The initial view selects
 the initial leg. Bound orbits display “Bound orbit” because

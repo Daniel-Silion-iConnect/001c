@@ -3,17 +3,21 @@ import { canvasView, threeView, legColor } from './renderers.js';
 import { createSpeedPanel } from './speed-panel.js';
 import { createTravelTimePanel } from './travel-time-panel.js';
 import { mountPicker } from './scenario-picker.js';
+import { createNarrativePanel, loadNarratives } from './narrative-panel.js';
 
 const element = (id) => document.getElementById(id);
 
 async function start() {
-  const scenario = await mountPicker();
+  const { path: scenario, id: scenarioId } = await mountPicker();
   const response = await fetch(scenario);
   if (!response.ok) throw new Error(`Cannot load ${scenario}: HTTP ${response.status}.`);
   let doc;
   try { doc = await response.json(); }
   catch { throw new Error(`Cannot parse ${scenario}: expected valid JSON.`); }
   const model = buildTrajectory(doc);
+  const narrativePanel = createNarrativePanel(doc, scenarioId);
+  element('status').after(narrativePanel.element);
+  loadNarratives().then(narrativePanel.setData);
   // Draw and play each leg only from its event to the next, so the path reads as one trajectory.
   const arcs = buildContinuousArcs(model);
   const playback = buildContinuousPlayback(model, arcs);
@@ -38,6 +42,7 @@ async function start() {
     element('percent').textContent = text.percent;
     element('context').textContent = `Leg ${index} · ${leg.bound ? 'elliptic orbit' : leg.finalElements.e > 1 ? 'hyperbolic path' : 'parabolic path'} · e = ${leg.finalElements.e.toFixed(4)}`;
     speedPanel.select(index);
+    narrativePanel.select(index, model.result.log[index - 1]?.status);
     eventButtons.forEach((button, i) => button.setAttribute('aria-pressed', String(i + 1 === index)));
     labels.forEach((button, i) => button.setAttribute('aria-pressed', String(i + 1 === index)));
     view?.select(index);
