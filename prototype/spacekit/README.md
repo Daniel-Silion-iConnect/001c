@@ -137,5 +137,8 @@ viewer's **Reference scenario** picker (`scenario-picker.js`) loads them; the sc
 example stays the default. Each file starts after the Earth departure and Jupiter
 assist, which are not modelled. `targetAsymptotic_km_s` records the doc's far-field
 linear v∞. Tether stations sit at 10–30 AU, so their Δv adds almost linearly. Concept B's
-solar sail has no schema event yet: the file encodes only the perihelion kick, and
-`scenarios.test.js` applies the doc's hybrid equation to the engine's perihelion state.
+`solarSail` event deploys a β = 0.25 radial sail after the perihelion kick. The
+engine propagates with μ☉(1 − β) and predicts the doc's hybrid v∞ of 107.56 km/s.
+Set β to zero in a later sail event to jettison it; only work already delivered is
+retained. The current conic solver supports 0 ≤ β < 1. See the
+[sail contract](../../docs/ORBITAL_NOTATION.md#solarsail) for energy and continuation semantics.

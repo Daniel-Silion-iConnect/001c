@@ -53,6 +53,9 @@
           },
           {
             "$ref": "#/$defs/gravityAssist"
+          },
+          {
+            "$ref": "#/$defs/solarSail"
           }
         ]
       }
@@ -586,6 +589,48 @@
           ]
         }
       },
+      "additionalProperties": false
+    },
+    "solarSail": {
+      "type": "object",
+      "description": "Radial solar radiation pressure from this position onward. beta = 0 jettisons the sail. Only attractive effective gravity (beta < 1) is supported.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notes": {
+          "type": "string"
+        },
+        "type": {
+          "const": "solarSail"
+        },
+        "beta": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "location": {
+          "anyOf": [
+            {
+              "enum": [
+                "current",
+                "perihelion",
+                "periapsis",
+                "aphelion",
+                "apoapsis"
+              ]
+            },
+            {
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "beta"
+      ],
       "additionalProperties": false
     }
   }

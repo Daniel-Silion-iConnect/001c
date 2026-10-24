@@ -30,9 +30,12 @@ export function validateScenario(doc) {
   require(Array.isArray(doc.events), 'events must be an array.');
   doc.events.forEach((ev, index) => {
     const at = `events[${index}]`;
-    require(ev && ['burn', 'oberthBurn', 'tetherRelease', 'hitchhike', 'gravityAssist'].includes(ev.type), `${at}: unsupported event type.`);
+    require(ev && ['burn', 'oberthBurn', 'tetherRelease', 'hitchhike', 'gravityAssist', 'solarSail'].includes(ev.type), `${at}: unsupported event type.`);
     require(ev.id === undefined || (typeof ev.id === 'string' && ev.id.trim()), `${at}: id must be a nonempty string.`);
-    if (ev.type === 'gravityAssist') {
+    if (ev.type === 'solarSail') {
+      require(doc.centralBody === 'Sun' && number(ev.beta) && ev.beta >= 0 && ev.beta < 1, `${at}: solarSail needs Sun and 0 ≤ beta < 1.`);
+      require(ev.location === undefined || ['current', 'perihelion', 'periapsis', 'aphelion', 'apoapsis'].includes(ev.location) || number(ev.location), `${at}: invalid sail location.`);
+    } else if (ev.type === 'gravityAssist') {
       require(typeof ev.body === 'string' && ev.body.trim() && number(ev.periapsis_km) && ev.periapsis_km > 0
         && (ev.turnAngle_deg === undefined || (number(ev.turnAngle_deg) && ev.turnAngle_deg > 0 && ev.turnAngle_deg < 180)), `${at}: invalid gravity-assist parameters.`);
     } else {
@@ -94,7 +97,7 @@ export function buildTrajectory(doc, options = {}) {
   for (const [index, event] of doc.events.entries()) {
     // `radial` is the schema spelling for the engine's outward direction.
     const adapted = { ...event, direction: event.direction === 'radial' ? 'radialOut' : event.direction };
-    current = applyEvents(current.finalElements, [adapted], settings);
+    current = applyEvents(current.finalElements, [adapted], { ...settings, sailBeta: current.sailBeta });
     const entry = { ...current.log[0], index };
     log.push(entry);
     totalDeltaV += current.totalDeltaV_km_s;
@@ -169,7 +172,7 @@ function timeFromAnomaly(nu, k, mu) {
 export function buildPlayback(model) {
   let duration_s = 0;
   const legs = model.legs.map(leg => {
-    const mu = MU[leg.centralBody];
+    const mu = leg.effectiveMu_km3_s2 ?? MU[leg.centralBody];
     const k = stateToElements(leg.finalState.r_km, leg.finalState.v_km_s, mu);
     const points = leg.ephemerisPoints;
     if (points.length < 2) throw new Error('Playback needs at least two ephemeris samples per leg.');

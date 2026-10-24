@@ -11,7 +11,26 @@ const check = (name, expected, change) => test(name, () => {
   assert.equal(validateTrajectory(value), expected, JSON.stringify(validateTrajectory.errors));
 });
 
-check('example covers all event types', true, value => assert.equal(value.events.length, 5));
+check('example covers impulse and flyby event types', true, value => assert.equal(value.events.length, 5));
+for (const beta of [0, 0.25, 0.5, 0.999]) check(`solar sail beta ${beta}`, true, value => {
+  value.events = [{ type: 'solarSail', beta }];
+});
+for (const location of ['current', 'perihelion', 'periapsis', 'aphelion', 'apoapsis', 60]) {
+  check(`solar sail at ${location}`, true, value => {
+    value.events = [{ type: 'solarSail', beta: 0.25, location, id: 'deploy', notes: 'Radial pressure' }];
+  });
+}
+for (const [name, event] of Object.entries({
+  'missing beta': { type: 'solarSail' },
+  'negative beta': { type: 'solarSail', beta: -0.1 },
+  'zero effective gravity': { type: 'solarSail', beta: 1 },
+  'repulsive gravity': { type: 'solarSail', beta: 1.1 },
+  'string beta': { type: 'solarSail', beta: '0.25' },
+  'impulse on sail': { type: 'solarSail', beta: 0.25, deltaV_km_s: 2 },
+  'direction on sail': { type: 'solarSail', beta: 0.25, direction: 'prograde' },
+  'unknown sail field': { type: 'solarSail', beta: 0.25, lightness: 0.25 },
+  'unknown sail location': { type: 'solarSail', beta: 0.25, location: 'outbound' }
+})) check(`solar sail rejects ${name}`, false, value => { value.events = [event]; });
 check('empty events and optional metadata', true, value => {
   value.events = [];
   delete value.name; delete value.description; delete value.targetAsymptotic_km_s;
