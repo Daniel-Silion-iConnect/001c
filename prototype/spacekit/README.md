@@ -105,6 +105,8 @@ screens the plot and controls stack in a single scrolling page. Earth and Jupite
 labels have dots at fixed 315° points on their rings, with leader lines keeping
 the connection visible when text shifts to avoid overlap. Both renderers project
 these anchors on every redraw; an offscreen anchor hides its label and leader.
+The central-body label has a matching gold leader anchored to the origin disc,
+independently of the nearby reference-orbit markers.
 
 The engine models burns, tethers, gravity assists, and solar sails; `hitchhike`
 is skipped with a warning under Engine notes. An Oberth event can include an implicit perihelion-retargeting burn; its

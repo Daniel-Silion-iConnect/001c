@@ -33,7 +33,7 @@ function placeLabel(label, baseX, baseY, placed) {
 }
 
 // HTML annotations retain their CSS pixel size in either projection and at every zoom.
-function sceneLabels(host, centralBody, referenceOrbits) {
+export function sceneLabels(host, centralBody, referenceOrbits) {
   const layer = document.createElement('div');
   layer.className = 'scene-labels';
   const marker = document.createElement('span');
@@ -45,12 +45,15 @@ function sceneLabels(host, centralBody, referenceOrbits) {
     ...referenceOrbits.map(ref => ({ text: `${ref.name} ${ref.radius_AU} AU`,
       position: [ref.radius_AU * Math.SQRT1_2, -ref.radius_AU * Math.SQRT1_2, 0] }))
   ].map(annotation => {
-    let anchor, leader;
+    let anchor;
+    const leader = document.createElement('span');
+    leader.className = annotation.body ? 'body-leader' : 'orbit-leader';
+    leader.setAttribute('aria-hidden', 'true');
+    layer.append(leader);
     if (!annotation.body) {
       anchor = document.createElement('span'); anchor.className = 'orbit-anchor';
-      leader = document.createElement('span'); leader.className = 'orbit-leader';
-      anchor.setAttribute('aria-hidden', 'true'); leader.setAttribute('aria-hidden', 'true');
-      layer.append(leader, anchor);
+      anchor.setAttribute('aria-hidden', 'true');
+      layer.append(anchor);
     }
     const label = document.createElement('span');
     label.className = `scene-label${annotation.body ? ' body-label' : ''}`;
@@ -71,7 +74,8 @@ function sceneLabels(host, centralBody, referenceOrbits) {
       });
       for (const { label, body, anchor, leader, px, py, visible } of projected) {
         label.hidden = !visible;
-        if (anchor) { anchor.hidden = !visible; leader.hidden = !visible; }
+        leader.hidden = !visible;
+        if (anchor) anchor.hidden = !visible;
         if (body) {
           marker.hidden = !visible;
           marker.style.left = `${px}px`; marker.style.top = `${py}px`;
@@ -91,15 +95,15 @@ function sceneLabels(host, centralBody, referenceOrbits) {
             && y < p.y + p.height + 4 && y + height + 4 > p.y)) break;
         }
         label.style.left = `${x}px`; label.style.top = `${y}px`;
+        // Each leader starts at its own projected position, including the origin disc.
+        leader.style.left = `${px}px`; leader.style.top = `${py}px`;
         if (anchor) {
-          // Text may move to avoid other annotations; its leader always starts on the ring.
-          anchor.style.left = leader.style.left = `${px}px`;
-          anchor.style.top = leader.style.top = `${py}px`;
-          const dx = Math.max(x, Math.min(x + width, px)) - px;
-          const dy = Math.max(y, Math.min(y + height, py)) - py;
-          leader.style.width = `${Math.hypot(dx, dy)}px`;
-          leader.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+          anchor.style.left = `${px}px`; anchor.style.top = `${py}px`;
         }
+        const dx = Math.max(x, Math.min(x + width, px)) - px;
+        const dy = Math.max(y, Math.min(y + height, py)) - py;
+        leader.style.width = `${Math.hypot(dx, dy)}px`;
+        leader.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
         placed.push({ x, y, width, height });
       }
       return placed;
