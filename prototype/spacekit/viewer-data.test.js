@@ -5,10 +5,54 @@ import { AU_KM, C_KM_S, MU, applyTrajectory, circularSpeed } from './engine.js';
 import { validateScenario, trueAnomalyFromMean, engineElements, buildTrajectory, speedText, buildSpeedSeries, targetProgress, SPEED_TARGET_KM_S, buildPlayback, playbackAt,
   anomalyOfPosition, radiusCapAnomaly, legArcSpan, sampleArc, buildContinuousArcs, buildContinuousPlayback } from './viewer-data.js';
 import { legColor } from './renderers.js';
+import { cruiseYears, buildTravelTimeRows, formatTravelYears, CRUISE_TARGET_KM_S,
+  LIGHT_YEAR_KM, JULIAN_YEAR_S } from './viewer-data.js';
 
 const example = JSON.parse(readFileSync(new URL('./schema-example.json', import.meta.url)));
 const scenario = () => structuredClone(example);
 const near = (a, b, tolerance = 1e-9) => assert.ok(Math.abs(a - b) < tolerance, `${a} ≠ ${b}`);
+
+test('cruise times convert AU and light-years and compare with exactly 0.001c', () => {
+  near(CRUISE_TARGET_KM_S, 299.792458);
+  assert.equal(JULIAN_YEAR_S, 31557600);
+  near(LIGHT_YEAR_KM, 9460730472580.8, 0.01);
+  near(cruiseYears(31557600 * 10, 10), 1);
+  const rows = buildTravelTimeRows(CRUISE_TARGET_KM_S / 2);
+  assert.equal(rows.length, 7);
+  assert.deepEqual(rows.map(row => [row.distance, row.unit]), [
+    [39.5, 'AU'], [120, 'AU'], [2000, 'AU'], [100000, 'AU'],
+    [4.24, 'ly'], [5.96, 'ly'], [7.86, 'ly']
+  ]);
+  near(rows[0].targetYears, 0.6245940427, 1e-9);
+  for (const row of rows) near(row.years, 2 * row.targetYears);
+  for (const [index, years] of [[4, 4240], [5, 5960], [6, 7860]]) near(rows[index].targetYears, years);
+});
+
+test('cruise times use final scenario speed and preserve bound and zero escape cases', () => {
+  const doc = JSON.parse(readFileSync(new URL('./scenarios/scenario-c.json', import.meta.url)));
+  const model = buildTrajectory(doc);
+  const rows = buildTravelTimeRows(model.result.vInf_km_s);
+  near(rows[4].years, 4.24 * C_KM_S / model.result.vInf_km_s);
+  assert.ok(rows[4].years < cruiseYears(4.24 * LIGHT_YEAR_KM, model.legs[0].vInf_km_s));
+  for (const speed of [null, 0]) {
+    const unavailable = buildTravelTimeRows(speed);
+    assert.ok(unavailable.every(row => row.years === null && row.targetYears > 0));
+  }
+  near(cruiseYears(0, 10), 0);
+  for (const speed of [-1, NaN, Infinity, undefined, '10']) assert.throws(() => cruiseYears(AU_KM, speed), /Escape speed/);
+  for (const distance of [-1, NaN, Infinity]) assert.throws(() => cruiseYears(distance, 10), /Distance/);
+});
+
+test('travel times format years, thousands of years, and missing asymptotes', () => {
+  assert.equal(formatTravelYears(null), '—');
+  assert.equal(formatTravelYears(0), '0.0 yr');
+  assert.equal(formatTravelYears(0.62458), '0.6 yr');
+  assert.equal(formatTravelYears(999), '999.0 yr');
+  assert.equal(formatTravelYears(1000), '1.00k yr');
+  assert.equal(formatTravelYears(4240), '4.24k yr');
+  assert.equal(formatTravelYears(100000), '100.00k yr');
+  for (const value of [-1, NaN, Infinity]) assert.throws(() => formatTravelYears(value), /Time/);
+});
 
 test('viewer retains sail state across events and plays the effective-gravity conic', () => {
   const doc = JSON.parse(readFileSync(new URL('./scenarios/scenario-b.json', import.meta.url)));
