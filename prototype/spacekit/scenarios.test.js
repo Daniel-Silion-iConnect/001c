@@ -22,7 +22,9 @@ test('index.json lists every scenario file once with id/name/file/summary', asyn
   assert.deepEqual(index.map((e) => e.file).sort(), files);
   assert.equal(new Set(index.map((e) => e.id)).size, index.length);
   for (const entry of index) {
-    assert.deepEqual(Object.keys(entry).sort(), ['file', 'id', 'name', 'summary']);
+    assert.deepEqual(Object.keys(entry).sort(), entry.category === 'exotic'
+      ? ['category', 'feasibility', 'file', 'id', 'name', 'showstopper', 'summary']
+      : ['file', 'id', 'name', 'summary']);
     for (const key of Object.keys(entry)) assert.ok(typeof entry[key] === 'string' && entry[key].trim(), `${entry.id}.${key}`);
     assert.equal(scenarios[entry.id].name, entry.name);
   }
@@ -149,7 +151,7 @@ test('index order matches descending engine-computed final v∞', () => {
 test('picker lists only index entries and defaults to the fastest final v∞', () => {
   const options = pickerOptions(index);
   assert.deepEqual(options.map(o => o.value), index.map(e => `scenarios/${e.file}`));
-  assert.deepEqual(options.map(o => o.label), index.map(e => e.name));
+  assert.deepEqual(options.map(o => o.label), index.map(e => e.category === 'exotic' ? `Exotic · speculative — ${e.name}` : e.name));
   assert.ok(!options.some(o => o.value === 'schema-example.json'));
   const fastest = [...index].sort((a, b) => applyTrajectory(scenarios[b.id]).vInf_km_s - applyTrajectory(scenarios[a.id]).vInf_km_s)[0];
   for (const search of ['', '?scenario=', '?other=1']) {
@@ -163,4 +165,15 @@ test('picker lists only index entries and defaults to the fastest final v∞', (
   assert.equal(selectScenario([], '?scenario=custom.json'), 'custom.json');
   assert.throws(() => selectScenario([], ''), /No reference scenarios/);
   assert.throws(() => pickerOptions({}), /must be an array/);
+});
+
+test('exotic picker entries clearly label speculation and expose feasibility and showstoppers', () => {
+  const entry = index.find(entry => entry.id === 'concept-d');
+  assert.equal(entry.category, 'exotic');
+  const option = pickerOptions(index).find(option => option.id === entry.id);
+  assert.match(option.label, /Exotic · speculative/);
+  assert.match(option.feasibility, /TRL 2/);
+  assert.equal(option.showstopper, entry.showstopper);
+  assert.ok(option.title.includes(`Showstopper: ${entry.showstopper}`));
+  assert.ok(option.title.includes(`Feasibility: ${entry.feasibility}`));
 });

@@ -1,5 +1,14 @@
 [
   {
+    "id": "concept-d",
+    "name": "Concept D: Moon-anchored photon-recycling cavity",
+    "file": "scenario-d.json",
+    "summary": "280 km/s photon-recycling boost at 1 AU; ideal final v∞ 306.9 km/s using a 2 kg probe, ~392 MW for 714 s at ~40 g.",
+    "category": "exotic",
+    "feasibility": "TRL 2; ideal photon momentum checks out, but the moving laser cavity is unproven.",
+    "showstopper": "Keep 300 effective reflections on a 22 m, 2.7 g/m² mirror receding at 280 km/s, with nanoradian pointing and wavelength/10 surface accuracy."
+  },
+  {
     "id": "concept-c-baseline",
     "name": "Concept C (baseline): Tether network + STP Oberth",
     "file": "scenario-c.json",

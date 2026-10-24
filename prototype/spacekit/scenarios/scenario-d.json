@@ -1,0 +1,33 @@
+{
+  "name": "Concept D: Moon-anchored photon-recycling cavity",
+  "description": "Exotic and speculative (TRL 2). Matches the photon-recycling cavity calculation in analysis/ideas_calc.py and docs/analyses/exotic-ideas.md: 2 kg probe, 300 effective reflections, approximately 392 MW for 714 s at 40 g, 280 km/s boost over 100,000 km, and 306.9 km/s solar escape speed. Begins co-moving with Earth on a circular 1 AU solar orbit; the Moon absorbs recoil. The short constant-power boost is integrated at the launch position, neglecting solar drift and Earth/Moon escape losses. Cavity optics, Doppler losses and mirror survival are not simulated. Showstopper: sustain 300 reflections with a 22 m, 2.7 g/m² mirror receding at 280 km/s, with nanoradian pointing and wavelength/10 surface accuracy.",
+  "epoch": "2026-10-24T00:00:00Z",
+  "centralBody": "Sun",
+  "frame": "ECLIPJ2000",
+  "initialElements": {
+    "type": "keplerian",
+    "a": 1,
+    "e": 0,
+    "i": 0,
+    "raan": 0,
+    "argp": 0,
+    "nu": 0,
+    "units": {
+      "a": "AU",
+      "angles": "deg"
+    }
+  },
+  "events": [
+    {
+      "id": "lunar-cavity-shot",
+      "type": "laserCavityBoost",
+      "power_MW": 391.7288117866667,
+      "duration_s": 714.2857142857143,
+      "recyclingFactor": 300,
+      "probeMass_kg": 2,
+      "direction": "prograde",
+      "notes": "Ideal 392 m/s² (about 40 g) acceleration; 280 km/s gain without onboard propellant. Moon-anchored recoil mirror; 100,000 km boost length. Optical recycling is assumed constant. This event uses integrated thrust at launch rather than propagating the 714 s powered segment."
+    }
+  ],
+  "targetAsymptotic_km_s": 306.9
+}

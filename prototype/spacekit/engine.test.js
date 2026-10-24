@@ -6,6 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import {
   AU_KM,
   C_KM_S,
@@ -31,6 +32,65 @@ const near = (actual, expected, tol, msg) =>
   );
 
 const circular1AU = { type: 'keplerian', a: 1, e: 0, units: { a: 'AU', angles: 'deg' } };
+
+// ---------- laserCavityBoost ----------
+
+test('Concept D matches the Python cavity reference and checked 306.9 km/s escape', () => {
+  const doc = JSON.parse(readFileSync(new URL('./scenarios/scenario-d.json', import.meta.url)));
+  const reference = JSON.parse(execFileSync('python3', ['-c', `
+import contextlib, io, json, runpy, sys
+with contextlib.redirect_stdout(io.StringIO()):
+    calc = runpy.run_path(sys.argv[1])
+ev = json.loads(sys.argv[2])
+print(json.dumps(calc['laser_cavity_boost'](ev['power_MW'], ev['duration_s'], ev['recyclingFactor'], ev['probeMass_kg'])))
+`, new URL('../../analysis/ideas_calc.py', import.meta.url).pathname, JSON.stringify(doc.events[0])], { encoding: 'utf8' }));
+  const out = applyTrajectory(doc);
+  const shot = out.log[0].laserCavity;
+  // Python rounds c to 2.998e8 m/s and AU to 1.496e11 m; engine uses precise constants.
+  near(out.vInf_km_s, reference.vInf_km_s, 0.01, 'Python v∞');
+  near(out.totalDeltaV_km_s, reference.deltaV_km_s, 0.01, 'Python integrated Δv');
+  near(shot.acceleration_m_s2, reference.acceleration_m_s2, 0.01, 'Python acceleration');
+  near(shot.inputEnergy_J, reference.inputEnergy_J, 1e-3, 'Python energy');
+  near(out.vInf_km_s, 306.9, 0.02);
+  near(out.totalDeltaV_km_s, 280, 1e-10);
+  near(shot.force_N, 784, 1e-9);
+  near(shot.circulatingPower_MW / 1000, 117.52, 0.01);
+  near(shot.acceleration_g, 40, 0.03);
+  near(shot.boostDistance_km, 100000, 1e-8);
+  near(shot.inputEnergy_J, 2.8e11, 2e8);
+  near(out.log[0].before.r_AU, out.log[0].after.r_AU, 0, 'integrated at launch');
+  near(out.log[0].after.speed_km_s, circularSpeed(MU.Sun, AU_KM) + 280, 1e-10);
+  assert.equal(out.log[0].status, 'applied');
+});
+
+test('cavity thrust scales with power, duration, reflections and inverse mass in each local direction', () => {
+  const shot = { type: 'laserCavityBoost', power_MW: 10, duration_s: 60, recyclingFactor: 20, probeMass_kg: 5, direction: 'prograde' };
+  const baseline = applyEvents(circular1AU, [shot]).totalDeltaV_km_s;
+  for (const [key, factor] of [['power_MW', 2], ['duration_s', 2], ['recyclingFactor', 2], ['probeMass_kg', 0.5]]) {
+    near(applyEvents(circular1AU, [{ ...shot, [key]: shot[key] * factor }]).totalDeltaV_km_s, baseline * 2, 1e-12, key);
+  }
+  for (const direction of ['prograde', 'retrograde', 'radial', 'normal']) {
+    const out = applyEvents(circular1AU, [{ ...shot, direction }]);
+    const impulse = applyEvents(circular1AU, [{ type: 'burn', deltaV_km_s: baseline, direction }]);
+    assert.deepEqual(out.finalState, impulse.finalState);
+    assert.equal(out.sailBeta, 0);
+  }
+});
+
+test('engine rejects invalid cavity inputs before applying thrust', () => {
+  const shot = { type: 'laserCavityBoost', power_MW: 1, duration_s: 1, recyclingFactor: 1, probeMass_kg: 1, direction: 'prograde' };
+  for (const key of ['power_MW', 'duration_s', 'probeMass_kg']) {
+    for (const value of [undefined, 0, -1, NaN, Infinity, '1']) {
+      assert.throws(() => applyEvents(circular1AU, [{ ...shot, [key]: value }]), new RegExp(key));
+    }
+  }
+  for (const value of [undefined, 0.5, Infinity, '300']) {
+    assert.throws(() => applyEvents(circular1AU, [{ ...shot, recyclingFactor: value }]), /recyclingFactor/);
+  }
+  for (const direction of [undefined, 'inward']) {
+    assert.throws(() => applyEvents(circular1AU, [{ ...shot, direction }]), /direction/);
+  }
+});
 
 // ---------- solarSail ----------
 

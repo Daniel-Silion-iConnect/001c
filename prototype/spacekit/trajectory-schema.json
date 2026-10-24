@@ -56,6 +56,9 @@
           },
           {
             "$ref": "#/$defs/solarSail"
+          },
+          {
+            "$ref": "#/$defs/laserCavityBoost"
           }
         ]
       }
@@ -630,6 +633,55 @@
       "required": [
         "type",
         "beta"
+      ],
+      "additionalProperties": false
+    },
+    "laserCavityBoost": {
+      "type": "object",
+      "description": "Ideal constant-power photon recycling; integrated thrust applied at the launch position.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notes": {
+          "type": "string"
+        },
+        "type": {
+          "const": "laserCavityBoost"
+        },
+        "power_MW": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "duration_s": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "probeMass_kg": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "recyclingFactor": {
+          "type": "number",
+          "minimum": 1
+        },
+        "direction": {
+          "enum": [
+            "prograde",
+            "retrograde",
+            "radial",
+            "normal"
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "power_MW",
+        "duration_s",
+        "recyclingFactor",
+        "probeMass_kg",
+        "direction"
       ],
       "additionalProperties": false
     }

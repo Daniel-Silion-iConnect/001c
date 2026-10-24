@@ -5,7 +5,14 @@ export const SCENARIO_INDEX = 'scenarios/index.json';
 /** Picker options ({ id, value, label, title }) in index order. */
 export function pickerOptions(index) {
   if (!Array.isArray(index)) throw new Error(`${SCENARIO_INDEX} must be an array.`);
-  return index.map(entry => ({ id: entry.id, value: `scenarios/${entry.file}`, label: entry.name, title: entry.summary ?? '' }));
+  return index.map(entry => ({
+    id: entry.id, value: `scenarios/${entry.file}`,
+    label: entry.category === 'exotic' ? `Exotic · speculative — ${entry.name}` : entry.name,
+    title: entry.category === 'exotic'
+      ? `${entry.summary ?? ''} Feasibility: ${entry.feasibility} Showstopper: ${entry.showstopper}`
+      : entry.summary ?? '',
+    category: entry.category, feasibility: entry.feasibility, showstopper: entry.showstopper
+  }));
 }
 
 // Match resolved URLs so explicit ./paths and absolute reference URLs work too.
@@ -39,7 +46,16 @@ export async function mountPicker() {
   }
   select.value = current;
   input.value = current;
+  const metadata = document.getElementById('picker-feasibility');
+  const renderMetadata = () => {
+    const selected = options.find(option => option.value === select.value);
+    metadata.hidden = selected?.category !== 'exotic';
+    metadata.textContent = metadata.hidden ? ''
+      : `Exotic · speculative. Feasibility: ${selected.feasibility} Showstopper: ${selected.showstopper}`;
+  };
+  renderMetadata();
   select.addEventListener('change', () => {
+    renderMetadata();
     input.value = select.value;
     input.form.requestSubmit();
   });
