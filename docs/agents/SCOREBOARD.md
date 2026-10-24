@@ -18,3 +18,14 @@ Scored by the 001c coordinator after reviewing each PR. 1–5 per axis: correctn
 | #12 | Codex (gpt-6.1-sol high) | viz wiring + Pages deploy | 9 | 6 | 9 | 24 | Strong viewer; sandbox required manual import; broke on #11 optional turnAngle |
 
 Live viewer: https://daniel-silion-iconnect.github.io/001c/
+
+## Round 3/4 (2026-10-24)
+
+| PR | Agent | Task | Correct (10) | Autonomy (10) | Quality (10) | Total | Notes |
+|----|-------|------|---|---|---|---|-------|
+| #17 | Codex (gpt-6.1-sol high, danger-full-access) | probe playback + time scrub | 10 | 10 | 10 | 30 | Kepler/Barker propagation with tests; claimed, pushed and opened the PR itself (~4 min) |
+| #20 | Antigravity (claude-opus-5-5-medium spillover) | scenarios A/B/C + picker | 10 | 9 | 10 | 29 | Reproduces the doc to ±0.01 km/s; found a Concept B table error (45.07, not 48.20) |
+| #19 | Codex (gpt-6.1-sol high, danger-full-access) | speed chart + gap to 300 km/s | 9 | 10 | 9 | 28 | Localised edits; merged cleanly |
+| #21 | Antigravity (gemini-4-argon-high) | favicon + visual polish | 7 | 3 | 7 | 17 | Good edits but stalled before committing (~20 min); coordinator committed it, Codex resolved the rebase |
+
+Process notes: Codex `--sandbox danger-full-access` inside a worktree fixes the push problem. The agy CLI needs `--model … -p "prompt"` (the prompt must come last).
