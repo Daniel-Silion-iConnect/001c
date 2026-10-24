@@ -70,3 +70,10 @@ Scored on creativity (10) and numerical accuracy (10), checked by `analysis/idea
 | #51 | Codex | mobile-first layout pass | 10 | 10 | 9 | 29 | Advanced <details>; collapsible cards |
 
 Process notes: a driver script ran D→E→F→layout sequentially on fresh main, merging each only after `gh pr checks --watch` was green.
+
+Round 7 review adjustments (coordinator code review of #48–#51): the physics matches ideas_calc.py, but #48 lacked ideas_calc's Doppler cap on the recycling factor and #48–#50 duplicated their validation (fixed in #56), so #48: 29→28. #51 put the 3D viewer at the bottom on mobile (fixed in #55), so #51: 29→26.
+
+| PR | Agent | Task | Correct (10) | Autonomy (10) | Quality (10) | Total | Notes |
+|----|-------|------|---|---|---|---|-------|
+| #55 | Codex | mobile viewer placement + card-default tests | 10 | 10 | 10 | 30 | 45vh viewer under the headline; verified real-width shots |
+| #56 | Codex | exotic handler review follow-ups | 10 | 10 | 10 | 30 | Doppler cap enforced; shared validators |
