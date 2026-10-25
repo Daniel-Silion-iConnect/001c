@@ -1115,8 +1115,239 @@ print('  incoming rendezvous geometry:', comet_rendezvous_scales())
 print('  VERDICT: riding a bound sungrazer does not escape; 74.5 km/s perihelion burn '
       'and 44.6 MW/m^2 heating make this a poor Concept C substitute.')
 
+def orion_oberth_budget(perihelion_Rsun=3, target_vinf_km_s=300,
+                       exhaust_speed_km_s=100, incoming_energy_km2_s2=0):
+    """Ideal tangential impulse and rocket mass ratios; no pulse-unit design.
+
+    Incoming energy is heliocentric specific orbital energy (zero = parabola).
+    Exhaust speed is an assumed *effective* propulsion-system value, not a
+    guaranteed historical Orion performance. Dry mass includes all hardware.
+    Sources and limitations: docs/analyses/orion-and-sundiver-hybrid.md.
+    """
+    _em_positive(perihelion_Rsun=perihelion_Rsun,
+                 exhaust_speed_km_s=exhaust_speed_km_s)
+    if (perihelion_Rsun <= 1 or not math.isfinite(target_vinf_km_s)
+            or target_vinf_km_s < 0 or not math.isfinite(incoming_energy_km2_s2)):
+        raise ValueError('perihelion must clear Sun; target and energy must be finite')
+    escape2 = 2 * MU_SUN / (perihelion_Rsun * R_SUN) / 1e6
+    incoming2 = escape2 + 2 * incoming_energy_km2_s2
+    if incoming2 < 0 or 2 * incoming_energy_km2_s2 > target_vinf_km_s**2:
+        raise ValueError('incoming speed must be real and target must require a prograde burn')
+    incoming = math.sqrt(incoming2)
+    outgoing = math.sqrt(escape2 + target_vinf_km_s**2)
+    delta_v = outgoing - incoming
+    return {
+        'escapeSpeed_km_s': math.sqrt(escape2), 'incomingSpeed_km_s': incoming,
+        'outgoingSpeed_km_s': outgoing, 'deltaV_km_s': delta_v,
+        'oberthMassRatio': math.exp(delta_v / exhaust_speed_km_s),
+        'rocketOnlyMassRatio': math.exp(target_vinf_km_s / exhaust_speed_km_s),
+        'burnTimeAtOneG_s': delta_v * 1000 / G0,
+        'localPassageScale_s': None if incoming == 0 else perihelion_Rsun * R_SUN / (incoming * 1000),
+    }
+
+
+def sail_terminal_energy(perihelion_Rsun, incoming_speed_km_s, beta,
+                         cutoff_AU=None):
+    """True-gravity energy at infinity after radial sail work, in km²/s².
+
+    Deployment is instantaneous at q; cutoff is an optional outbound jettison
+    radius. Returning energy, rather than clipping sqrt at zero, distinguishes
+    bound from parabolic trajectories. It does not prove a cutoff is reachable.
+    Point-source Sun, constant optics/beta and no mass change on jettison.
+    """
+    _em_positive(perihelion_Rsun=perihelion_Rsun)
+    if (perihelion_Rsun <= 1 or not math.isfinite(incoming_speed_km_s)
+            or incoming_speed_km_s < 0 or not math.isfinite(beta) or beta < 0):
+        raise ValueError('invalid radius, speed or lightness number')
+    q = perihelion_Rsun * R_SUN
+    inverse_cutoff = 0
+    if cutoff_AU is not None:
+        _em_positive(cutoff_AU=cutoff_AU)
+        if cutoff_AU * AU < q:
+            raise ValueError('cutoff must be at or outside deployment radius')
+        inverse_cutoff = 1 / (cutoff_AU * AU)
+    return (0.5 * incoming_speed_km_s**2 - MU_SUN / q / 1e6
+            + beta * MU_SUN * (1 / q - inverse_cutoff) / 1e6)
+
+
+def sundiver_budget(perihelion_Rsun=3, target_vinf_km_s=300,
+                    approach='parabolic', aphelion_AU=5.204, payload_kg=1,
+                    sail_areal_density_g_m2=0.5, reflectivity=1, absorptivity=0):
+    """Required beta and mass budget for a normal radial sail held to infinity.
+
+    approach is parabolic, rest (held until release), or ellipse with the given
+    aphelion. C_R = 2*reflectivity + absorptivity; transmitted light gives no
+    thrust. The areal density includes distributed sail/support mass; payload
+    must include bus, shielding, deployment and control hardware not in it.
+    No finite positive-payload area exists if the sail alone is too heavy.
+    """
+    _em_positive(perihelion_Rsun=perihelion_Rsun, target_vinf_km_s=target_vinf_km_s,
+                 payload_kg=payload_kg, sail_areal_density_g_m2=sail_areal_density_g_m2)
+    if perihelion_Rsun <= 1:
+        raise ValueError('deployment must be outside Sun')
+    if (any(not math.isfinite(x) or x < 0 or x > 1 for x in (reflectivity, absorptivity))
+            or reflectivity + absorptivity > 1):
+        raise ValueError('reflection and absorption must be physical fractions')
+    q = perihelion_Rsun * R_SUN
+    escape2 = 2 * MU_SUN / q
+    if approach == 'parabolic':
+        incoming2 = escape2
+    elif approach == 'rest':
+        incoming2 = 0
+    elif approach == 'ellipse':
+        _em_positive(aphelion_AU=aphelion_AU)
+        if aphelion_AU * AU <= q:
+            raise ValueError('aphelion must exceed perihelion')
+        incoming2 = escape2 - 2 * MU_SUN / (q + aphelion_AU * AU)
+    else:
+        raise ValueError('unknown approach')
+    beta = (target_vinf_km_s**2 * 1e6 + escape2 - incoming2) / escape2
+    coefficient = 2 * reflectivity + absorptivity
+    # Force per area = C_R S_1AU AU² / (c r²); divide by gravity and sigma.
+    critical_density = coefficient * SOLAR_FLUX_W_M2 * AU**2 / (c * MU_SUN)
+    total_density = critical_density / beta
+    sail_density = sail_areal_density_g_m2 / 1000
+    area = payload_kg / (total_density - sail_density) if total_density > sail_density else None
+    return {
+        'incomingSpeed_km_s': math.sqrt(incoming2) / 1000,
+        'beta': beta, 'radiationCoefficient': coefficient,
+        'totalArealDensity_g_m2': total_density * 1000,
+        'maxBetaBareSail': critical_density / sail_density,
+        'area_m2': area, 'sailMass_kg': None if area is None else area * sail_density,
+        'totalMass_kg': None if area is None else payload_kg + area * sail_density,
+        'maxAcceleration_m_s2': beta * MU_SUN / q**2,
+        'maxAcceleration_g': beta * MU_SUN / q**2 / G0,
+    }
+
+
+def sail_thermal_budget(perihelion_Rsun=3, absorptivity=0.1,
+                        emissivity_front=0.8, emissivity_back=0.8, limit_K=3000):
+    """Normal irradiance and two-face radiative equilibrium, SI units.
+
+    Solar-weighted absorptivity and thermal Planck-mean emissivities are
+    independent assumed spectral averages, not certified material properties.
+    No sublimation, conduction, transient or coronal heating is included.
+    """
+    _em_positive(perihelion_Rsun=perihelion_Rsun, limit_K=limit_K)
+    fractions = (absorptivity, emissivity_front, emissivity_back)
+    if (perihelion_Rsun <= 1 or any(not math.isfinite(x) or x < 0 or x > 1 for x in fractions)
+            or emissivity_front + emissivity_back == 0):
+        raise ValueError('invalid optical fractions or deployment radius')
+    flux = SOLAR_FLUX_W_M2 * (AU / (perihelion_Rsun * R_SUN))**2
+    emission = (emissivity_front + emissivity_back) * SIGMA_SB
+    return {
+        'flux_W_m2': flux, 'suns': flux / SOLAR_FLUX_W_M2,
+        'temperature_K': (absorptivity * flux / emission)**0.25,
+        'maxAbsorptivityForLimit': emission * limit_K**4 / flux,
+    }
+
+
+class OrionSundiverTests(unittest.TestCase):
+    def test_oberth_and_rocket_only_are_different_budgets(self):
+        row = orion_oberth_budget()
+        self.assertAlmostEqual(row['escapeSpeed_km_s'], 356.614063, delta=1e-6)
+        self.assertAlmostEqual(row['outgoingSpeed_km_s'], 466.018873, delta=1e-6)
+        self.assertAlmostEqual(row['deltaV_km_s'], 109.404810, delta=1e-6)
+        self.assertAlmostEqual(row['oberthMassRatio'], 2.986339, delta=1e-6)
+        self.assertAlmostEqual(row['rocketOnlyMassRatio'], math.exp(3))
+        self.assertGreater(row['burnTimeAtOneG_s'], row['localPassageScale_s'])
+        # Reconstruct the escape energy from the burn and initial orbital energy.
+        for energy in (0, -MU_SUN / (AU + 3 * R_SUN) / 1e6, 45**2 / 2):
+            out = orion_oberth_budget(incoming_energy_km2_s2=energy)
+            dv = out['deltaV_km_s']
+            self.assertAlmostEqual(2 * energy + 2 * out['incomingSpeed_km_s'] * dv + dv**2, 300**2)
+        self.assertEqual(orion_oberth_budget(target_vinf_km_s=0)['oberthMassRatio'], 1)
+
+    def test_approach_energy_resolves_beta_and_area_estimates(self):
+        parabola = sundiver_budget()
+        rest = sundiver_budget(approach='rest')
+        ellipse = sundiver_budget(approach='ellipse')
+        self.assertAlmostEqual(parabola['beta'], 0.707694105, delta=1e-9)
+        self.assertAlmostEqual(rest['beta'] - parabola['beta'], 1)
+        self.assertAlmostEqual(ellipse['beta'] - parabola['beta'],
+                               3 * R_SUN / (3 * R_SUN + 5.204 * AU))
+        self.assertAlmostEqual(rest['totalArealDensity_g_m2'], 0.896601, delta=1e-6)
+        self.assertAlmostEqual(rest['area_m2'], 2521.4234, delta=1e-4)
+        self.assertAlmostEqual(parabola['area_m2'], 601.1296, delta=1e-4)
+        for row in (parabola, rest, ellipse):
+            self.assertAlmostEqual(sail_terminal_energy(3, row['incomingSpeed_km_s'], row['beta']), 45000)
+            self.assertAlmostEqual(row['totalMass_kg'] / row['area_m2'] * 1000,
+                                   row['totalArealDensity_g_m2'])
+        self.assertAlmostEqual(rest['maxAcceleration_g'], 5.305338, delta=1e-6)
+        self.assertAlmostEqual(ellipse['maxAcceleration_g'], 2.206918, delta=1e-6)
+
+    def test_finite_sail_work_against_independent_quadrature(self):
+        row = sundiver_budget(approach='ellipse')
+        q, cutoff, n = 3 * R_SUN, 0.1 * AU, 4000
+        dr = (cutoff - q) / n
+        acceleration = lambda r: row['beta'] * MU_SUN / r**2
+        integral = dr / 3 * (acceleration(q) + acceleration(cutoff) + sum(
+            (4 if i % 2 else 2) * acceleration(q + i * dr) for i in range(1, n)))
+        initial = sail_terminal_energy(3, row['incomingSpeed_km_s'], 0)
+        final = sail_terminal_energy(3, row['incomingSpeed_km_s'], row['beta'], cutoff / AU)
+        self.assertAlmostEqual(final - initial, integral / 1e6, delta=1e-7)
+        self.assertLess(final, 45000)
+        self.assertAlmostEqual(sail_terminal_energy(3, row['incomingSpeed_km_s'], row['beta'], q / AU), initial)
+        self.assertLess(sail_terminal_energy(3, row['incomingSpeed_km_s'], 0), 0)
+
+    def test_optics_and_payload_mass_cannot_be_ignored(self):
+        mirror = sundiver_budget(approach='ellipse', reflectivity=0.9, absorptivity=0.1)
+        self.assertAlmostEqual(mirror['area_m2'], 646.15254, delta=1e-5)
+        doubled = sundiver_budget(approach='ellipse', reflectivity=0.9, absorptivity=0.1, payload_kg=2)
+        self.assertAlmostEqual(doubled['area_m2'], 2 * mirror['area_m2'])
+        # Bare graphene's measured optical absorption is NOT perfect reflection.
+        transparent = sundiver_budget(reflectivity=0, absorptivity=0.023)
+        self.assertIsNone(transparent['area_m2'])  # at the specified 0.5 g/m²
+        self.assertLess(transparent['maxBetaBareSail'], transparent['beta'])
+        absorbing = sundiver_budget(reflectivity=0, absorptivity=1)
+        self.assertAlmostEqual(absorbing['totalArealDensity_g_m2'], sundiver_budget()['totalArealDensity_g_m2'] / 2)
+
+    def test_thermal_limits_and_scalings(self):
+        row = sail_thermal_budget()
+        self.assertAlmostEqual(row['flux_W_m2'], 6992537.3711, delta=1e-4)
+        self.assertAlmostEqual(row['temperature_K'], 1666.194779, delta=1e-6)
+        self.assertAlmostEqual(sail_thermal_budget(absorptivity=1)['temperature_K'], 2962.959868, delta=1e-6)
+        self.assertAlmostEqual(sail_thermal_budget(emissivity_back=0)['temperature_K'] / row['temperature_K'], 2**0.25)
+        self.assertAlmostEqual(sail_thermal_budget(perihelion_Rsun=6)['temperature_K'] / row['temperature_K'], 1 / math.sqrt(2))
+        self.assertAlmostEqual(sail_thermal_budget(absorptivity=0)['temperature_K'], 0)
+        self.assertLess(sail_thermal_budget(limit_K=933.45)['maxAbsorptivityForLimit'], 0.01)
+
+    def test_invalid_inputs(self):
+        for function, kwargs in (
+                (orion_oberth_budget, {'perihelion_Rsun': 1}),
+                (orion_oberth_budget, {'target_vinf_km_s': -1}),
+                (orion_oberth_budget, {'exhaust_speed_km_s': 0}),
+                (orion_oberth_budget, {'incoming_energy_km2_s2': math.nan}),
+                (orion_oberth_budget, {'incoming_energy_km2_s2': -1e9}),
+                (sundiver_budget, {'approach': 'unknown'}),
+                (sundiver_budget, {'approach': 'ellipse', 'aphelion_AU': 0.001}),
+                (sundiver_budget, {'payload_kg': 0}),
+                (sundiver_budget, {'reflectivity': 0.99, 'absorptivity': 0.1}),
+                (sundiver_budget, {'reflectivity': math.inf}),
+                (sail_terminal_energy, {'perihelion_Rsun': 3, 'incoming_speed_km_s': 350, 'beta': -1}),
+                (sail_terminal_energy, {'perihelion_Rsun': 3, 'incoming_speed_km_s': 350, 'beta': 0.7, 'cutoff_AU': 0.001}),
+                (sail_thermal_budget, {'absorptivity': 1.1}),
+                (sail_thermal_budget, {'emissivity_front': 0, 'emissivity_back': 0})):
+            with self.subTest(function=function.__name__, kwargs=kwargs):
+                with self.assertRaises(ValueError):
+                    function(**kwargs)
+
+
+print('\n== Orion and sundiver hybrid (issue #71; ideal two-body bounds) ==')
+print('  Orion, parabolic arrival, assumed effective exhaust 100 km/s:', orion_oberth_budget())
+for approach in ('parabolic', 'rest', 'ellipse'):
+    print(f'  perfect reflector, {approach} approach:', sundiver_budget(approach=approach))
+print('  Concept G, assumed R=0.9, alpha=0.1 carbon-based mirror:',
+      sundiver_budget(approach='ellipse', reflectivity=0.9, absorptivity=0.1))
+for alpha in (1, 0.3, 0.1, 0.03, 0.01):
+    print(f'  two-face thermal equilibrium, alpha={alpha}, epsilon=0.8/face:',
+          sail_thermal_budget(absorptivity=alpha))
+print('  VERDICT: Orion mass ratio checks but does not scale to a 1 kg vehicle; '
+      'carbon sail energy is meaningful only as an exotic conditional scenario. '
+      'Beta 1.708 and ~2521 m^2 describe release from rest, not a parabolic dive.')
+
 if __name__ == '__main__':
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromTestCase(case)
-                           for case in (EMRailTests, CometHitchhikeTests)))
+                           for case in (EMRailTests, CometHitchhikeTests, OrionSundiverTests)))
     sys.exit(0 if result.wasSuccessful() else 1)

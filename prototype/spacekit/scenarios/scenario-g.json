@@ -1,0 +1,30 @@
+{
+  "name": "Concept G: Carbon sundiver sail at 3 solar radii",
+  "description": "Exotic conditional study, docs/analyses/orion-and-sundiver-hybrid.md (issue #71). Starts after unmodelled delivery onto a 5.204 AU aphelion / 3 R_sun perihelion ellipse. Deploys a constant-beta radial sail at perihelion and retains it to infinity for solar v_inf = 300 km/s, without an impulsive kick. Assumed solar reflectivity 0.9, absorptivity 0.1, thermal emissivity 0.8 per face and 0.5 g/m² distributed sail/support mass require ~646 m² for a 1 kg shielded probe, ~1.323 kg total. These combined optical, thermal, structural and mass properties are not demonstrated; bare graphene is not this mirror.",
+  "epoch": "2026-10-24T00:00:00Z",
+  "centralBody": "Sun",
+  "frame": "ECLIPJ2000",
+  "initialElements": {
+    "type": "keplerian",
+    "a": 2.608975700891443,
+    "e": 0.9946525367108174,
+    "i": 0,
+    "raan": 0,
+    "argp": 0,
+    "nu": 180,
+    "units": {
+      "a": "AU",
+      "angles": "deg"
+    }
+  },
+  "events": [
+    {
+      "id": "carbon-sail-deployment",
+      "type": "solarSail",
+      "beta": 0.7103654897590646,
+      "location": "perihelion",
+      "notes": "Deploy only at q = 3 R_sun, after the inbound coast. Beta includes the bound-arrival energy deficit; ~2.21 g peak radiation acceleration at ~6.99 MW/m². Assumed R=0.9, alpha=0.1, epsilon=0.8 per face imply ~1666 K. Sun-normal sail remains deployed to infinity; finite jettison lowers the final speed. No impulsive delta-v or Orion stage."
+    }
+  ],
+  "targetAsymptotic_km_s": 300
+}
