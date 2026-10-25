@@ -1,6 +1,6 @@
 # Nano-swarm: divide the vehicle, not the physical obligations
 
-Issue #74. **Verdict:** a swarm is useful for independent flyby measurements and
+Issues #74 and #77. **Verdict:** a swarm is useful for independent flyby measurements and
 redundancy. Dividing a kilogram into chips does **not** automatically increase
 speed, deliver a kilogram intact, brake at the destination, or create a factory.
 Concept H is a conditional **300 km/s sundiver flyby swarm**, with one chip shown
@@ -22,10 +22,11 @@ python3 analysis/ideas_calc.py
 The stdlib functions `nano_solar_chip`, `nano_laser_speed`, `nano_laser_shot`,
 `nano_swarm_launch`, `nano_kinetic_energy`, `nano_dust_column`, `nano_redundancy`,
 `nano_arrival`, `nano_seed_chips`, `nano_optical_link`, `nano_claims_budget`,
-and `nano_magsail_brake` live in
+`nano_magsail_brake`, and `nano_target_hop` live in
 [`analysis/ideas_calc.py`](../../analysis/ideas_calc.py). `NanoSwarmTests` checks
 energy/momentum conservation, moving-mirror time against independent quadrature,
-scaling, heat, dust columns, probability, arrival errors and aperture scaling.
+scaling, heat, dust columns, probability, arrival errors, aperture scaling,
+and post-capture hop energy, endpoint matching and travel-time sensitivities.
 `tests/nano-swarm.test.mjs` puts those tests on CI and checks Concept H's meaning.
 
 Here a **chip mass is its entire non-sail vehicle allocation**: science,
@@ -271,8 +272,9 @@ For 0.2c the first encounter report reaches Earth no earlier than **25.44 yr**
 after launch, before turnaround or data transmission time.
 
 [Heller & Hippke (2017)](https://arxiv.org/abs/1701.08803) obtain the famous
-**0.046c** capture result using Alpha Cen A/B followed by Proxima, with nominal
-sail σ ≈ **7.6×10⁻⁴ g/m²**, roughly **95 yr to A/B plus 46 yr transfer**,
+**0.046c** capture result using Alpha Cen A/B followed by Proxima, with bare
+graphene σ ≈ **7.6×10⁻⁴ g/m²** and fiducial loaded σ ≈ **8.6×10⁻⁴ g/m²**,
+roughly **95 yr to A/B plus 46 yr transfer**,
 and about **100,000 m²** for a **10 g payload**. These are extremely favorable
 sail assumptions. Their [author FAQ](https://www2.mps.mpg.de/homes/heller/content/main_pga_FAQ.html)
 puts direct-Proxima braking at only about **1,280 km/s for that nominal sail**.
@@ -304,6 +306,168 @@ qV ≳ KE: **19.35 MV at 0.2c**, **0.994 MV at 0.046c**, but **470 V at
 neutral gas, power, charging and deployment still prevent assuming a chip brake.
 A laser at Earth shining from behind pushes outward; destination braking by a
 beam requires another momentum geometry or pre-existing target infrastructure.
+
+### Target trade: stop at Alpha Cen A/B or continue to Proxima? (issue #77)
+
+**Recommend Alpha Cen A as the primary destination for the captured-seed
+research architecture**, with B a nearby secondary survey and Proxima an
+optional separately budgeted mission. A offers a solar-type environment,
+an interesting planet candidate and an earlier opportunity for sustained
+observations. This is a mission-priority judgment, conditional on a viable
+capture sail and subsequent resource reconnaissance. It does not turn the
+300 km/s Concept H flyby into a captured mission. If the overriding objective
+is a **known terrestrial-mass habitable-zone planet**, Proxima b is the
+stronger science target, despite the longer captured itinerary.
+
+#### Three itineraries, with different energy histories
+
+[Heller & Hippke (2017), §§3–5 and Figs. 2, 4–5](https://arxiv.org/pdf/1701.08803)
+give the reference **95 yr to A/B**, then **46 yr to Proxima**, retaining about
+**1,280 km/s** after the A/B encounters. Their full-stop and flyby speed limits
+differ: **95 yr is an A/B arrival benchmark, not a demonstrated circular
+parking orbit at either star at that exact date**. A-only capture must use its
+own full-stop solution and subsequent orbit settling. The highly reflective,
+ultralight sail and close-encounter assumptions above remain essential.
+
+| Case | First sustained destination science, measured from Earth departure | Consequence |
+|---|---|---|
+| **1. Capture at A or B** | Approximately the **95 yr A/B arrival scale**, subject to a capture-specific approach and orbit settling | Retain a resident observatory; prospect locally before committing to manufacturing. A is preferred; B is a fallback if its planets/resources or capture geometry prove better. |
+| **2. A → B → Proxima without parking at A/B** | Approximately **141 yr**, plus final orbit settling | A/B provide braking and flyby science. The final target is the known Proxima b system; the fast onward leg spends speed retained from the interstellar approach. |
+| **3. Capture at A, then depart later** | A science first; later arrival adds **waiting time W + hop time + any orbit preparation** | Parking gives time to survey and accumulate arrivals, but a later hop needs a new energy source and braking budget. Quantified scales follow. |
+
+#### A later hop is a separate mission
+
+`nano_target_hop` deliberately estimates **two impulsive endpoint burns** from
+and to circular stellar parking orbits, rather than claiming a sail trajectory:
+
+v_circ = √(μ/r); v_peri = √(v∞² + 2μ/r);
+
+Δv_depart = v_peri,A − v_circ,A;
+Δv_arrive = v_peri,target − v_circ,target;
+t_coast ≈ D/v∞.
+
+Assume the same scalar v∞ at both stars, prograde tangential burns at the
+parking radii, and a straight coast. These are **order-of-magnitude scales**:
+the two asymptotes have not been connected into an intercept. Binary motion,
+gravity during the interstellar leg, plane changes, finite thrust and launch
+windows are omitted; D/v∞ is not an integrated time of flight. This matters
+especially for A–B, where the stars move appreciably during the hop. No entry
+includes initial interstellar capture, circularization into the assumed
+departure orbit, waiting, or planetary capture/landing.
+
+Use A/B masses **1.0788/0.9092 M☉** from
+[Beichman & Sanghi et al., Table 1](https://arxiv.org/html/2508.03814v1#S2.T1),
+parking radii **1.233/0.707 AU** from the Earth-insolation reference distances in
+[Quarles & Lissauer (2018), Table 1](https://arxiv.org/pdf/1801.06131),
+and **D = 23 AU** as a representative A–B separation, not an encounter epoch.
+For Proxima use **0.1221 M☉**, **D = 13,000 AU** from
+[Kervella, Thévenin & Lovis (2017), §§2.3–3.1](https://arxiv.org/pdf/1611.03495),
+and an assumed **0.05 AU stellar parking orbit** near Proxima b's orbital
+distance. That orbit is not an orbit around the planet.
+
+| Hop after parking at A | Assumed coast v∞ (km/s) | D/v∞ (yr) | Departure Δv (km/s) | Arrival Δv (km/s) | Total Δv (km/s) |
+|---|---:|---:|---:|---:|---:|
+| **A → B**, 23 AU | 20 | **5.45** | 16.33 | 18.01 | **34.33** |
+| **A → Proxima**, 13,000 AU | 10 | **6,163** | 12.79 | 20.03 | **32.82** |
+| **A → Proxima**, 13,000 AU | 100 | **616.3** | 79.62 | 73.18 | **152.80** |
+| **A → Proxima**, 13,000 AU | 1,280 | **48.15** | 1,252.75 | 1,235.15 | **2,487.89** |
+
+Thus the illustrative B visit occurs about **95 + W + 5.45 yr**, while a
+moderate-speed Proxima visit adds centuries or millennia. The last row's
+approximately 48 yr versus the paper's 46 yr reflects the rounded **13,000 AU**
+distance here versus its approximately **12,500 AU** reference, not a new
+optimized trajectory. Recovering a comparably fast leg **after stopping**
+requires a huge fresh speed budget. Sailing or local beams might replace
+propellant, but must supply the work and control; Δv here is the equivalent
+impulsive propulsion requirement, not propellant consumption or a calculated
+sail maneuver. A gravity assist alone cannot supply arbitrary energy.
+There is no assumed destination beamer or working ISRU propulsion plant.
+
+#### Planets, habitable zones and stable real estate
+
+**Status checked 2026-10-25.** The
+[NASA Exoplanet Archive confirmed-planet table](https://exoplanetarchive.ipac.caltech.edu/docs/API_PS_overview.html)
+(`ps`, `default_flag=1`, host names containing `Cen` or `Centauri`) lists
+Proxima b and d, with no confirmed planet around A or B. No later published
+confirmation of S1 was located in this literature check.
+
+* **A:** [Beichman & Sanghi et al. (2025), Paper I](https://arxiv.org/abs/2508.03814)
+  report **S1**, a possible cool gas giant seen with JWST/MIRI in August 2024
+  at about **2 AU projected separation**. It was not recovered in February
+  or April 2025. A link to the 2019 VLT/NEAR source C1 is a hypothesis.
+  [Sanghi & Beichman et al., Paper II](https://arxiv.org/abs/2508.03812)
+  tests instrumental explanations but still requires redetection. This is
+  **a candidate, not a confirmed planet or another Earth**; its moons and
+  accessible solid material have not been detected.
+* **B:** [Rajpaul, Aigrain & Roberts (2016)](https://arxiv.org/abs/1510.05598)
+  reproduce the claimed 3.24-day Bb signal from the sampling and analysis,
+  undermining the original planet claim. No confirmed planet does not mean
+  no planets: small worlds remain possible.
+* **Proxima:** [Suárez Mascareño et al. (2025)](https://doi.org/10.1051/0004-6361/202553728)
+  recover the established terrestrial-mass HZ planet b and further support d;
+  a surface atmosphere, water and usable ore are not established by a radial
+  velocity detection. The star's
+  [observed flare activity](https://www.almaobservatory.org/en/press-releases/alma-unveils-new-details-of-the-flares-of-proxima-centauri/)
+  matters for exposed hardware and atmospheric history.
+
+The following **published model bounds**, not newly calculated climate limits,
+come from [Quarles & Lissauer (2018), §2.1 and Table 1](https://arxiv.org/pdf/1801.06131).
+Their empirical HZ uses recent-Venus/early-Mars flux limits; their particular
+“conservative” inner edge uses Earth-equivalent flux. It is **not the usual
+runaway-greenhouse inner-edge definition**. Atmospheric assumptions and stellar
+parameters change HZ bounds; being in an HZ does not establish habitability.
+
+| Host | Empirical HZ (AU) | That study's conservative HZ (AU) | Listed outer single-planet prograde stability limit (AU) |
+|---|---:|---:|---:|
+| **A** | **0.924–2.179** | **1.233–2.179** | **2.72** |
+| **B** | **0.530–1.250** | **0.707–1.250** | **2.60** |
+
+[Holman & Wiegert (1999)](https://arxiv.org/abs/astro-ph/9809315)
+fit critical circumstellar and circumbinary orbital sizes for test particles.
+[Quarles & Lissauer (2016)](https://arxiv.org/abs/1604.04917) explore the
+Alpha Cen system on much longer timescales, finding resonant structure,
+inclination dependence and larger retrograde stable regions. Therefore
+**roughly ≤2–3 AU** is a useful low-eccentricity, prograde circumstellar
+planning scale, not a spherical boundary or proof every orbit inside it is
+safe. Both modeled HZs fit inside it. Eccentric, highly inclined or multiple
+planet systems require individual integrations. A putative S1 cannot simply
+be added to an otherwise unchanged stable terrestrial-planet layout.
+
+#### Debris constraints and resources are different questions
+
+The JWST A study finds no resolved warm exozodiacal disk; its coplanar model
+sensitivity is about **5 luminosity-zodis or 8 surface-density-zodis**, two
+definitions of the same model threshold, not a measured belt. See
+[Paper I, §III.4](https://arxiv.org/html/2508.03814v1#S3.SS4) and
+[Paper II, §VIII](https://arxiv.org/html/2508.03812v1#S8).
+This is an A constraint; it should not be assigned to B.
+[Wiegert et al. (2014)](https://arxiv.org/abs/1401.6896) use Herschel/APEX
+observations of both stars to constrain dust, discussing weak **2.5σ**
+24 μm excesses and model-dependent dust masses rather than a secure asteroid
+belt detection; a circumbinary disk was undetected. Their illustrative warm
+grain inventory of **≲4×10⁻⁶ lunar masses** assumes a size distribution over
+**4–1,000 μm**, not the mass of mineable parent bodies.
+
+**Inference for mission design:** infrared limits constrain radiating grain
+area and model-dependent dust mass. They neither certify an empty system nor
+inventory boulders, metals, water or accessible asteroid orbits. Binary
+stability also restricts where long-lived circumstellar reservoirs could lie;
+one cannot assume a solar-system-like outer belt around each star. A factory
+must first locate and assay an actual body, then budget rendezvous and mining.
+
+| Target | Science value | Resources / ISRU implications (engineering judgments) |
+|---|---|---|
+| **A: primary captured survey** | Solar-type stellar environment; verify/characterize S1; search for smaller planets and debris; compare planet formation in a binary | Solar power is available in the modeled HZ. Gas-giant atmosphere collection is far harder than small-body mining. Neither S1's moons nor a rocky feedstock inventory is established; reconnaissance precedes a seed commitment. |
+| **B: secondary or fallback** | K-dwarf planet census and HZ comparison with A; no confirmed world yet | Its smaller HZ offers useful stellar flux closer in, with no established advantage in ore or volatiles. A later visit spans tens of AU and needs a transfer, not just a change of pointing. |
+| **Proxima: dedicated rocky-planet objective** | Known terrestrial-mass b and the environment of an active M dwarf | A terrestrial-mass planet offers a concrete place to investigate materials, but composition, accessible deposits and landing/launch costs remain unknown. Flare exposure and the long transfer reduce its appeal as the first manufacturing base. |
+
+Choose **resident reconnaissance at A first**, preserving independent chips
+for remote observations and only considering B or Proxima transfers after
+propulsion and resource measurements justify them. This prioritizes earlier
+science and avoids making seed success depend on an unverified asteroid belt
+or moon. Proxima remains a compelling dedicated science mission, not an
+automatic next stop for a parked fleet. None of these choices closes the
+ultralight capture sail, chip survival or autonomous-factory mass budget.
 
 ### Rendezvous audit
 
@@ -563,7 +727,7 @@ seed has a defensible mass and process budget.
 |---|---|---|---|
 | **Laser flyby swarm** | 1,000 × 1 g non-sail chips, illustrative 1 g sails; 0.2c, **21.2 yr**; ideal **5,611 GWh optical / 11,222 GWh electrical**; **3.03 days** array time including 60 s turnaround under full capture | Independent flyby sensing; no landing or factory assumed | **Best fast science candidate, conditional.** Full 100 GW capture is a bound; real sail, array, shielding, power and return link remain major engineering barriers. Published point design implies **63,000 GWh** for 1,000 heavier craft. |
 | **Sundiver flyby swarm (Concept H)** | 1,000 × 1 g chip allocations; **0.646 m² / 0.323 g sail per chip**, **1.323 kg fleet**, **300 km/s**, **4,237 yr** | Representative escape only; no capture or assembly claimed | **Meaningful exotic solar swarm comparator.** Same speed as G, not a mass-splitting bonus; **1,666 K** sail plus autonomous millennia-long survival and unmodeled delivery are showstoppers. |
-| **Photogravitational captured seed swarm** | Nominal **0.046c**, about **95+46 yr** via A/B; paper's **10 g / 100,000 m²** sail scale, not the gram laser/sundiver sail | Capture conditionally studied; gathering and a complete factory unclosed | **Research path for seed-first, not an established 1 kg mission.** Ultra-low mass loading, intact sails, navigation, assembly and a defensible seed mass are missing. |
+| **Photogravitational captured seed swarm** | Nominal **0.046c** study: **~95 yr to A/B**, **~141 yr to Proxima**; paper's **10 g / 100,000 m²** sail scale, not the gram laser/sundiver sail | Prefer an **A resident survey**, conditional on its capture solution; later hops need new propulsion. Gathering and a complete factory remain unclosed | **Research path for seed-first, not an established 1 kg mission.** Ultra-low mass loading, intact sails, navigation, verified resources and a defensible seed mass are missing. |
 
 Concept H's `scenario-h.json` intentionally reuses G's inbound orbit and β: the
 engine is mass independent when β is held fixed. `index.json` labels it exotic,
