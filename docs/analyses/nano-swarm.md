@@ -21,7 +21,8 @@ python3 analysis/ideas_calc.py
 
 The stdlib functions `nano_solar_chip`, `nano_laser_speed`, `nano_laser_shot`,
 `nano_swarm_launch`, `nano_kinetic_energy`, `nano_dust_column`, `nano_redundancy`,
-`nano_arrival`, `nano_seed_chips`, and `nano_optical_link` live in
+`nano_arrival`, `nano_seed_chips`, `nano_optical_link`, `nano_claims_budget`,
+and `nano_magsail_brake` live in
 [`analysis/ideas_calc.py`](../../analysis/ideas_calc.py). `NanoSwarmTests` checks
 energy/momentum conservation, moving-mirror time against independent quadrature,
 scaling, heat, dust columns, probability, arrival errors and aperture scaling.
@@ -450,6 +451,111 @@ is unsupported; neither its existence at Proxima nor this capability is known.
 Information has a physical carrier: a beam carries energy and momentum even
 though individual photons have zero rest mass. “Information has no mass” does
 not erase the need for receiver and manufacturing hardware.
+
+## Claims check
+
+The issue addendum combines several design points. The following checks keep
+its proposed numbers separate from the published designs. The first two rows
+use `nano_claims_budget` and
+`NanoSwarmTests.test_claimed_starshot_geometry_acceleration_and_heat`; the loop
+row uses `nano_magsail_brake` and
+`test_magsail_integrals_density_and_hardware_scaling`. The stagger/attrition row
+uses `nano_arrival`, `nano_dust_column`, `nano_redundancy`, and
+`test_weekly_launches_and_90_percent_loss_are_not_a_compact_kit`.
+
+| Claim | Computed / sourced check | Verdict |
+|---|---|---|
+| **1 km² array; 100 GW at 1.06 μm; 4 m, 1 g sail plus 1–2 g chip; 60,000 g for 600 s; focus to 2 million km; 0.2c in 20–22 yr** | A filled circular 1 km² aperture has equivalent D = **1.128 km**. At 2 million km its Airy first-null radius is **2.292 m**, larger than the 2 m sail radius; full first-lobe containment ends at **1.745 million km**. Perfect-mirror initial acceleration is **34,014 g** for 2 g total, **22,676 g** for 3 g, falling during recession. Reaching 0.2c in 600 s requires **10,190 g average**, not 60,000 g constant. Perfect 100 GW capture needs **226.4–339.6 s acceleration** over **7.315–10.972 million km** for those masses. Flight time **21.2 yr** is correct. [Parkin's source](https://arxiv.org/html/1805.01306v3), Tables 1–2, specifies a different mass/array/power point. | **Mixed assumptions.** 20–22 yr cruise is sound; 60,000 g, 600 s, short focus range and the stated masses do not form one consistent acceleration history. A 1 km² collecting area is not automatically the same thing as a 1 km baseline for a sparse phased array. |
+| **99.999% reflectivity, equivalent to absorptance ≤10⁻⁵** | At 100 GW across a 4 m disc, I = **7.958 GW/m²**. Required α ≤ **(εf+εb)σSB Tlim⁴/I**, giving **1.087×10⁻⁸** at 625 K and emissivity sum 0.01; see the thermal table below. R + α + transmission = 1: low α does not require equally high R for a transmitting sail. [Parkin's model](https://arxiv.org/html/1805.01306v3) separately specifies reflection, absorption and thermal emission. | **False equivalence and no universal α limit.** A cold weak emitter needs much less than 10⁻⁵ absorption; a hotter efficient emitter can tolerate more. |
+| **Photogravitational braking takes 95–140 yr** | [Heller & Hippke](https://arxiv.org/abs/1701.08803) give about **95 yr crossing to A/B + 46 yr onward to Proxima = 141 yr** under their sail assumptions. Our 4.24 ly / 0.046c comparison is **92.17 yr ballistic**, not capture time. | **Plausible total itinerary shorthand**, not 95–140 yr spent braking, and not a 0.2c direct-Proxima capture result. |
+| **An HTS magnetic scoop brakes in 50–70 yr** | Our explicit dilute-plasma loop model below gives **41.04 yr / 1.162 ly** from 0.2c to 100 km/s with **842.7 kA, 1,000 km radius and 1,906 metric tons total**. From 0.046c: **23.55 yr / 0.2644 ly**, **193.8 kA**, **438.4 tons**. Choosing other radii can produce 60 yr braking, with huge mass. The [Gros reference model](https://arxiv.org/html/1707.02801v3) supplies the area/current and conductor-mass relations. | **Possible as a tuned optimistic massive mission**, unsupported as a generic chip brake. State endpoint, density, current, radius, mass and whether 50–70 yr means braking or the whole mission. |
+| **Thousands of chips, weeks apart, 90% lost to dust** | For **1,000 chips 2 weeks apart**, first-to-last departure is **38.29 yr**, so 0.2c flybys span arrival years **21.2–59.49** after first launch. The moving train extends **7.66 ly** at a common late epoch. The reference dust-only lethal example above gives **7.2% loss**, not 90%. To get 90% loss requires λlethal = **ln 10 = 2.303**; in the hypothetical 1 μm population, that needs **30.8% of all dust mass lethal at that size** for 1 mm² forward area. [Hoang et al.](https://arxiv.org/html/1608.05284v2) do not establish a universal 90% chip loss rate. | **Cadence is a design choice; 90% is an assumption.** At s = 0.1 only **100 g** of an initial 1 kg is expected intact. Staggering helps independent science and temporal coverage but worsens assembling one contemporaneous kit. |
+| **Payload means catalysts and directed assembly, not nanobots** | This is a **design choice**, not a measured performance claim. Mass/role counts can be checked with `nano_seed_chips` and `nano_redundancy`; catalytic efficacy or factory closure cannot be inferred from them. The [NASA automation study](https://ntrs.nasa.gov/api/citations/19830007077/downloads/19830007077.pdf) is a systems-scale comparison, not evidence for gram-scale assemblers. | **Adopt this framing for a future seed architecture**, while requiring an actual feedstock/process and capture design. The current H allocation does not claim a functioning factory. |
+
+### Absorption must be computed from temperature and emission
+
+All entries use the initial rest-frame irradiance of **7.958 GW/m²** and
+uniform two-face emission. During 0.2c recession, comoving incident irradiance
+falls by (1−b)/(1+b) = 2/3 if source-plane P/A is fixed; using the initial
+irradiance is conservative for fixed properties. Hot optical changes,
+nonuniform beam peaks and Doppler detuning may remove that benefit.
+
+| Assumed temperature limit | εf+εb | Maximum absorptance α | If opaque, minimum R = 1−α |
+|---:|---:|---:|---:|
+| 625 K | 0.01 | **1.0873×10⁻⁸** | **99.99999891%** |
+| 1,000 K | 0.1 | **7.1256×10⁻⁷** | **99.99992874%** |
+| 1,500 K | 1 | **3.6073×10⁻⁵** | **99.99639266%** |
+
+These conditional limits do not certify a material. Transmission can keep
+absorption small while reducing thrust, so high reflection and low absorption
+must be specified separately. The hot efficient-emitter example is a different
+thermal design from the cold low-emittance example.
+
+### A loop brake with its mass left in the calculation
+
+Use the reference model's natural-log fit and conductor mass estimate:
+
+A(v) = 0.081 πR² [ln(I/(b Ic))]³, Ic = 1.55 MA;
+
+F(v) = 2 mp np v² A(v); mloop = 2πR × 0.18 kg/m × (I/1 MA).
+
+We choose I = e b₀ Ic (distance optimum for loop-dominated mass), **np =
+0.1 ionized protons/cm³**, and **mtotal = 2 mloop**, the paper's favorable
+hardware/payload allowance. This is not the total hydrogen density unless
+fully ionized. The assumed HTS mass per current is a favorable paper estimate,
+not a measured flight cable at the required field, temperature and lifetime.
+Current is fixed during a shot; area increases as the craft slows.
+
+With y = ln(v₀/v) and a = ln(I/(b₀ Ic)), the integrated distance and time are
+
+x = m/[4 mp np (0.081πR²)] × [a⁻² − (a+y)⁻²];
+
+t = m/[2 mp np (0.081πR²) v₀] × ∫₀ʸ exp(z)/(a+z)³ dz.
+
+The calculator integrates time with Simpson quadrature and checks distance
+against separate quadrature. The published ~58 yr, 0.1c, ~1,600 km-radius
+reference is recovered within rounding. At 0.2c the model is Newtonian;
+relativistic rigidity and momentum corrections are a few percent before other
+uncertainties. The fit was calibrated over about two orders of magnitude;
+extrapolating to the 100 km/s endpoint (speed ratios 600 and 138) is optimistic.
+Thermal plasma motion and neutral gas further limit the low-speed extension.
+
+| Initial speed | Loop radius | Current | Wire / total mass | Initial drag | Time to 100 km/s | Distance used |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0.2c | 1 km | 842.7 kA | **953 / 1,906 kg** | **0.306 N** | **41,035 yr** | **1,162 ly** |
+| 0.2c | 1,000 km | 842.7 kA | **953 / 1,906 tons** | **306.0 kN** | **41.04 yr** | **1.162 ly** |
+| 0.046c | 1 km | 193.8 kA | **219 / 438 kg** | **0.01619 N** | **23,546 yr** | **264.4 ly** |
+| 0.046c | 1,000 km | 193.8 kA | **219 / 438 tons** | **16.19 kN** | **23.55 yr** | **0.2644 ly** |
+
+For the 1,000 km loops, cruise over the remaining part of 4.24 ly followed by
+these braking legs takes **56.43 yr from 0.2c** or **109.97 yr from 0.046c**,
+ending at **100 km/s**, not at rest or in orbit. Tuning radius for **60 yr
+braking** requires **683.9 km / 1,304 tons total** at 0.2c (1.699 ly used), or
+**392.4 km / 172.0 tons** at 0.046c (0.6738 ly); corresponding cruise-plus-brake
+times are **72.71 yr** and **137.53 yr**. Thus “50–70 years” may describe a
+particular massive mission, but it is not an HTS technology constant.
+
+Exact zero speed takes **infinite time** in this law, despite a finite asymptotic
+distance. A final stellar-wind/photon/propulsive stage is still required.
+Cooling, tensile support, deployment, stored magnetic energy, quench protection,
+dust survival and controls do not disappear in the nominal factor-two mass
+allowance. A magnetic scoop's field transfers momentum to its attached loop;
+it is not a massless collecting aperture that can be assigned to every chip.
+
+### Catalysts and directed assembly: a narrower seed design
+
+Treat the proposed payload as selected **catalysts, process-control electronics,
+metrology and directed assembly instructions**, rather than an unspecified
+population of autonomous nanobots. Catalysts enable particular reactions;
+they do not supply energy, create absent elements, refine all feedstock or
+replace actuators and precision tooling. A useful seed specification must name
+the local substrate, chemical pathway, imported catalyst inventory, selectivity,
+poisoning/lifetime, energy supply and an assembly mechanism. Immobilized
+catalysts or a prepatterned substrate could direct a limited product if those
+conditions are supplied; this is a proposed design path, not demonstrated
+interstellar manufacturing. It still must brake, arrive intact and encounter
+usable material. Concept H remains the flyby comparator until such a captured
+seed has a defensible mass and process budget.
 
 ## Ranked architecture verdict
 

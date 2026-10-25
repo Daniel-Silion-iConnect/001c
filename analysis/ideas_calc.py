@@ -1558,6 +1558,83 @@ def nano_optical_link(power_W=1000, transmitter_m=10, receiver_m=10,
             'lastBitArrival_years': distance_ly + design_bytes * 8 / rate / JULIAN_YEAR}
 
 
+def nano_claims_budget(sail_diameter_m=4, sail_kg=0.001, chip_kg=0.001,
+                       power_W=1e11, aperture_area_m2=1e6, wavelength_m=1.06e-6,
+                       temperature_K=625, emissivity_sum=0.01):
+    """Issue #74 claims: filled circular equivalent aperture and cold-mirror load.
+
+    First-null containment is a convention, not a full beam-capture model.
+    alpha_max uses rest-frame initial irradiance and two-face emissivity sum.
+    Reflection and absorption are distinct when transmission is nonzero.
+    """
+    _em_positive(sail_diameter_m=sail_diameter_m, sail_kg=sail_kg, chip_kg=chip_kg,
+                 power_W=power_W, aperture_area_m2=aperture_area_m2,
+                 wavelength_m=wavelength_m, temperature_K=temperature_K,
+                 emissivity_sum=emissivity_sum)
+    if emissivity_sum > 2:
+        raise ValueError('two-face emissivity sum cannot exceed two')
+    aperture = math.sqrt(4 * aperture_area_m2 / math.pi)
+    irradiance = power_W / (math.pi * (sail_diameter_m/2)**2)
+    shot = nano_laser_shot(sail_kg+chip_kg, 0.2, power_W)
+    return {'equivalentAperture_m': aperture,
+            'firstNullRadiusAt2MillionKm_m': 1.22*wavelength_m*2e9/aperture,
+            'firstNullContainedRange_m': sail_diameter_m/2*aperture/(1.22*wavelength_m),
+            'initialAcceleration_g': 2*power_W/LIGHT_SPEED/(sail_kg+chip_kg)/G0,
+            'averageAccelerationFor600s_g': 0.2*LIGHT_SPEED/600/G0,
+            'irradiance_W_m2': irradiance,
+            'maxAbsorptivity': emissivity_sum*SIGMA_SB*temperature_K**4/irradiance,
+            'idealShot': shot}
+
+
+def nano_magsail_brake(initial_fraction=0.2, final_km_s=100, radius_km=1000,
+                        current_A=None, proton_density_cm3=0.1,
+                        wire_kg_m_per_MA=0.18, mass_factor=2, steps=4000):
+    """Gros 2017 eqs 1,8,21: Newtonian dilute-proton axial loop approximation.
+
+    Natural-log area fit A=0.081*pi*R²*ln(I/(beta*1.55e6))³; default current
+    e*beta_initial*Ic minimizes distance for coil-dominated mass. Total mass is
+    mass_factor times wire mass. wire_kg_m_per_MA=0.18 is the paper's favorable
+    HTS estimate, not flight hardware. Thermal/structural hardware is unclosed.
+    Time is Simpson quadrature in y=ln(v0/v); distance has a closed integral.
+    The fit is extrapolated when spanning more than its calibrated speed range.
+    Exact zero speed takes infinite time in this ideal law; final speed > 0.
+    """
+    _em_positive(initial_fraction=initial_fraction, final_km_s=final_km_s,
+                 radius_km=radius_km, proton_density_cm3=proton_density_cm3,
+                 wire_kg_m_per_MA=wire_kg_m_per_MA, mass_factor=mass_factor)
+    v0 = initial_fraction*LIGHT_SPEED
+    vf = final_km_s*1000
+    if initial_fraction >= 1 or vf >= v0 or mass_factor < 1:
+        raise ValueError('require decreasing subluminal speed and total mass >= wire mass')
+    if not isinstance(steps, int) or steps < 2 or steps % 2:
+        raise ValueError('Simpson steps must be a positive even integer')
+    critical = 1.55e6
+    current = math.e * initial_fraction * critical if current_A is None else current_A
+    _em_positive(current_A=current)
+    if current <= initial_fraction*critical:
+        raise ValueError('initial current below reflection-fit threshold')
+    radius = radius_km*1000
+    wire_mass = 2*math.pi*radius*wire_kg_m_per_MA*current/1e6
+    mass = wire_mass*mass_factor
+    rho = PROTON_MASS_KG*proton_density_cm3*1e6
+    area_coefficient = 0.081*math.pi*radius**2
+    a = math.log(current/(initial_fraction*critical))
+    end = math.log(v0/vf)
+    f = lambda y: mass/(2*rho*area_coefficient*v0)*math.exp(y)/(a+y)**3
+    h = end/steps
+    duration = h/3*(f(0)+f(end)+sum((4 if i%2 else 2)*f(i*h) for i in range(1,steps)))
+    distance = mass/(4*rho*area_coefficient)*(1/a**2-1/(a+end)**2)
+    initial_area = area_coefficient*a**3
+    return {'current_A': current, 'wireMass_kg': wire_mass, 'totalMass_kg': mass,
+            'initialArea_m2': initial_area,
+            'initialDrag_N': 2*rho*initial_area*v0**2,
+            'initialDeceleration_m_s2': 2*rho*initial_area*v0**2/mass,
+            'braking_years': duration/JULIAN_YEAR, 'brakingDistance_ly': distance/LIGHT_YEAR,
+            'asymptoticDistance_ly': mass/(4*rho*area_coefficient*a*a)/LIGHT_YEAR,
+            'finalSpeed_km_s': final_km_s,
+            'fitSpeedRatio': v0/vf}
+
+
 class NanoSwarmTests(unittest.TestCase):
     def test_laser_energy_momentum_and_retarded_time(self):
         for b in (0, 0.001, 0.046, 0.2, 0.9):
@@ -1642,6 +1719,52 @@ class NanoSwarmTests(unittest.TestCase):
         self.assertAlmostEqual(nano_optical_link(distance_ly=8.48)['rate_bit_s'], link['rate_bit_s']/4)
         self.assertAlmostEqual(link['lastBitArrival_years'] - link['designTransmit_years'], 4.24)
 
+    def test_claimed_starshot_geometry_acceleration_and_heat(self):
+        row = nano_claims_budget()
+        self.assertAlmostEqual(row['initialAcceleration_g'], 34014.07159, delta=0.01)
+        self.assertGreater(row['idealShot']['distance_m'], 3*row['firstNullContainedRange_m'])
+        # Close heat balance independently for the limiting alpha.
+        self.assertAlmostEqual(row['maxAbsorptivity']*row['irradiance_W_m2'],
+                               0.01*SIGMA_SB*625**4)
+        self.assertLess(row['maxAbsorptivity'], 2e-8)
+        self.assertAlmostEqual(nano_claims_budget(temperature_K=1250)['maxAbsorptivity'],
+                               row['maxAbsorptivity']*16)
+        self.assertAlmostEqual(nano_claims_budget(emissivity_sum=0.02)['maxAbsorptivity'],
+                               row['maxAbsorptivity']*2)
+
+    def test_magsail_integrals_density_and_hardware_scaling(self):
+        row = nano_magsail_brake()
+        refined = nano_magsail_brake(steps=8000)
+        self.assertAlmostEqual(row['braking_years'], refined['braking_years'], places=8)
+        # Independent quadrature of the distance integral in log speed.
+        end = math.log(0.2*LIGHT_SPEED/1e5)
+        h = end/4000
+        rho = PROTON_MASS_KG*1e5
+        f = lambda y: row['totalMass_kg']/(2*rho*0.081*math.pi*1e12*(1+y)**3)
+        distance = h/3*(f(0)+f(end)+sum((4 if i%2 else 2)*f(i*h) for i in range(1,4000)))
+        self.assertAlmostEqual(distance/LIGHT_YEAR, row['brakingDistance_ly'], places=9)
+        double = nano_magsail_brake(proton_density_cm3=0.2)
+        self.assertAlmostEqual(double['braking_years'], row['braking_years']/2)
+        self.assertAlmostEqual(double['brakingDistance_ly'], row['brakingDistance_ly']/2)
+        larger = nano_magsail_brake(radius_km=2000)
+        self.assertAlmostEqual(larger['wireMass_kg'], row['wireMass_kg']*2)
+        self.assertAlmostEqual(larger['braking_years'], row['braking_years']/2)
+        late = nano_magsail_brake(final_km_s=1)
+        self.assertGreater(late['braking_years'], row['braking_years'])
+        self.assertLess(late['brakingDistance_ly'], row['asymptoticDistance_ly'])
+        # The paper gives ~58 yr total at 0.1c, R~1600 km, n=0.1 cm^-3.
+        reference = nano_magsail_brake(initial_fraction=0.1, radius_km=1600)
+        total_years = (4.2-reference['brakingDistance_ly'])/0.1+reference['braking_years']
+        self.assertAlmostEqual(total_years, 58, delta=1)
+
+    def test_weekly_launches_and_90_percent_loss_are_not_a_compact_kit(self):
+        span = (1000-1)*14*86400
+        row = nano_arrival(speed_km_s=0.2*LIGHT_SPEED/1000, launch_span_s=span)
+        self.assertAlmostEqual(span/JULIAN_YEAR, 38.29158, delta=1e-5)
+        self.assertGreater(row['launchSpanSeparation_m']/LIGHT_YEAR, 7)
+        self.assertAlmostEqual(math.exp(-math.log(10)), 0.1)
+        self.assertAlmostEqual(1000*0.1*0.001, 0.1)  # kg expected intact
+
     def test_invalid_inputs(self):
         for function, kwargs in (
                 (nano_kinetic_energy, {'mass_kg': 1, 'speed_fraction': 1}),
@@ -1663,6 +1786,10 @@ class NanoSwarmTests(unittest.TestCase):
             with self.subTest(function=function.__name__, kwargs=kwargs):
                 with self.assertRaises(ValueError):
                     function(**kwargs)
+        for kwargs in ({'final_km_s': 0}, {'current_A': 1}, {'steps': 3},
+                       {'mass_factor': 0.5}, {'initial_fraction': 1}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                nano_magsail_brake(**kwargs)
 
 
 if __name__ == '__main__':
@@ -1680,6 +1807,9 @@ if __name__ == '__main__':
     for speed in (300, 0.046*LIGHT_SPEED/1000, 0.2*LIGHT_SPEED/1000):
         print('  arrival speed km/s:', speed, nano_arrival(speed_km_s=speed))
     print('  assumed Earth-to-factory optical link:', nano_optical_link())
+    print('  Starshot claims benchmark:', nano_claims_budget())
+    for speed in (0.2, 0.046):
+        print('  HTS loop braking from v/c:', speed, nano_magsail_brake(initial_fraction=speed))
     print('  VERDICT: distributed flybys are meaningful; splitting alone gives no speed gain. '
           'Capture, gathering and a closed ISRU factory are separate unsolved systems.')
     result = unittest.TextTestRunner(verbosity=2).run(
