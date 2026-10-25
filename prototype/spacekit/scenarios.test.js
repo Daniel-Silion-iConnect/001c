@@ -190,7 +190,7 @@ test('picker lists only index entries and defaults to the fastest final v∞', (
 });
 
 test('exotic picker entries clearly label speculation and expose feasibility and showstoppers', () => {
-  for (const id of ['concept-d', 'concept-e', 'concept-f', 'concept-g']) {
+  for (const id of ['concept-d', 'concept-e', 'concept-f', 'concept-g', 'concept-h']) {
     const entry = index.find(entry => entry.id === id);
     assert.equal(entry.category, 'exotic');
     const option = pickerOptions(index).find(option => option.id === entry.id);

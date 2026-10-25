@@ -1,0 +1,30 @@
+{
+  "name": "Concept H: Distributed sundiver chip swarm",
+  "description": "Exotic conditional flyby swarm, docs/analyses/nano-swarm.md (issue #74). Split the 1 kg probe allocation into 1,000 independent 1 g chips. Each carries ~0.646 m\u00b2 of the assumed Concept G mirror (~0.323 g), giving ~1.323 g total per vehicle and the same beta and solar v_inf = 300 km/s. Starts on an already delivered 5.204 AU aphelion / 3 R_sun ellipse. The displayed trajectory is one representative chip, not 1,000 propagated vehicles. Splitting preserves areal density and speed; no speed bonus is claimed. The assumed 90% solar reflection, 10% absorption, emissivity 0.8 per face and 0.5 g/m\u00b2 sail/support imply ~1666 K. Materials, shielding, delivery and millennia-long chip survival are unproven. This is a distributed flyby: braking, gathering, self-assembly and an ISRU factory are not modeled or established.",
+  "epoch": "2026-10-24T00:00:00Z",
+  "centralBody": "Sun",
+  "frame": "ECLIPJ2000",
+  "initialElements": {
+    "type": "keplerian",
+    "a": 2.608975700891443,
+    "e": 0.9946525367108174,
+    "i": 0,
+    "raan": 0,
+    "argp": 0,
+    "nu": 180,
+    "units": {
+      "a": "AU",
+      "angles": "deg"
+    }
+  },
+  "events": [
+    {
+      "id": "chip-sail-deployment",
+      "type": "solarSail",
+      "beta": 0.7103654897590646,
+      "location": "perihelion",
+      "notes": "Representative independent chip: 1 g probe allocation includes bus, shielding and controls; ~0.323 g sail/support across ~0.646 m\u00b2. Constant-beta radial deployment at 3 R_sun; same speed and thermal regime as Concept G. Retained sail to infinity; no capture or assembly event."
+    }
+  ],
+  "targetAsymptotic_km_s": 300
+}

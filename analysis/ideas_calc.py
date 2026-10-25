@@ -1346,8 +1346,343 @@ print('  VERDICT: Orion mass ratio checks but does not scale to a 1 kg vehicle; 
       'carbon sail energy is meaningful only as an exotic conditional scenario. '
       'Beta 1.708 and ~2521 m^2 describe release from rest, not a parabolic dive.')
 
+LIGHT_SPEED = 299792458.0  # exact; nano-swarm uses SI/Julian light-years
+JULIAN_YEAR = 365.25 * 86400
+LIGHT_YEAR = LIGHT_SPEED * JULIAN_YEAR
+PLANCK = 6.62607015e-34
+
+
+def nano_kinetic_energy(mass_kg, speed_fraction):
+    """Relativistic KE, evaluated without cancellation at small v/c."""
+    _em_positive(mass_kg=mass_kg)
+    if not math.isfinite(speed_fraction) or not 0 <= speed_fraction < 1:
+        raise ValueError('speed fraction must be finite and in [0, 1)')
+    root = math.sqrt(1 - speed_fraction**2)
+    return mass_kg * LIGHT_SPEED**2 * speed_fraction**2 / (root * (1 + root))
+
+
+def nano_laser_shot(total_mass_kg=0.001, speed_fraction=0.2, power_W=1e11):
+    """Perfect 1D moving mirror, full beam capture, constant source power.
+
+    u = gamma(1+b); emitted energy = mc²(u-1)/2. Source emission ends
+    before the last photons catch the mirror. No gravity/diffraction/losses.
+    These are lower bounds, not Parkin's finite-reflectivity system model.
+    """
+    _em_positive(total_mass_kg=total_mass_kg, power_W=power_W)
+    kinetic = nano_kinetic_energy(total_mass_kg, speed_fraction)
+    u = math.sqrt((1 + speed_fraction) / (1 - speed_fraction))
+    du = u - 1
+    emission = total_mass_kg * LIGHT_SPEED**2 / (2 * power_W) * du
+    # Expanded polynomial avoids cancellation near zero speed.
+    elapsed = total_mass_kg * LIGHT_SPEED**2 / (2 * power_W) * (
+        du + du**2 / 2 + du**3 / 6)
+    return {'emittedEnergy_J': power_W * emission, 'kineticEnergy_J': kinetic,
+            'emission_s': emission, 'acceleration_s': elapsed,
+            'distance_m': LIGHT_SPEED * total_mass_kg * LIGHT_SPEED**2
+            / (2 * power_W) * (du**2 / 2 + du**3 / 6)}
+
+
+def nano_laser_speed(total_areal_density_g_m2, irradiance_W_m2=1e9,
+                     acceleration_s=600):
+    """v/c after fixed laboratory elapsed time; density includes all mass.
+
+    Solve the exact moving-mirror shot duration monotonically. With P/m=I/sigma
+    the result is independent of chip mass. Perfect reflection is an upper bound.
+    """
+    _em_positive(total_areal_density_g_m2=total_areal_density_g_m2,
+                 irradiance_W_m2=irradiance_W_m2, acceleration_s=acceleration_s)
+    power_per_kg = irradiance_W_m2 / (total_areal_density_g_m2 / 1000)
+    lo, hi = 0.0, 1 - 1e-12
+    for _ in range(90):
+        mid = (lo + hi) / 2
+        if nano_laser_shot(1, mid, power_per_kg)['acceleration_s'] < acceleration_s:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2
+
+
+def nano_solar_chip(payload_kg=0.001, total_areal_density_g_m2=2.0476229,
+                    sail_areal_density_g_m2=0.5, perihelion_Rsun=3,
+                    aphelion_AU=5.204, reflectivity=0.9, absorptivity=0.1,
+                    emissivity_per_face=0.8, limit_K=1800):
+    """Scale Concept G's bound inbound ellipse; constant radial sail to infinity.
+
+    None vInf means bound, not zero-speed escape. Thermal viability only checks
+    an assumed equilibrium limit, not material certification or chip cooling.
+    """
+    _em_positive(payload_kg=payload_kg,
+                 total_areal_density_g_m2=total_areal_density_g_m2,
+                 sail_areal_density_g_m2=sail_areal_density_g_m2,
+                 aphelion_AU=aphelion_AU)
+    budget = sundiver_budget(perihelion_Rsun=perihelion_Rsun,
+                             reflectivity=reflectivity, absorptivity=absorptivity)
+    if total_areal_density_g_m2 <= sail_areal_density_g_m2:
+        raise ValueError('positive payload requires total density above sail density')
+    q = perihelion_Rsun * R_SUN
+    if aphelion_AU * AU <= q:
+        raise ValueError('aphelion must exceed perihelion')
+    area = payload_kg * 1000 / (total_areal_density_g_m2 - sail_areal_density_g_m2)
+    critical = budget['beta'] * budget['totalArealDensity_g_m2']
+    beta = critical / total_areal_density_g_m2
+    energy = -MU_SUN / (q + aphelion_AU * AU) + beta * MU_SUN / q
+    thermal = sail_thermal_budget(perihelion_Rsun, absorptivity,
+                                  emissivity_per_face, emissivity_per_face, limit_K)
+    return {'beta': beta, 'vInf_km_s': math.sqrt(2 * energy) / 1000 if energy >= 0 else None,
+            'area_m2': area, 'sailMass_kg': area * sail_areal_density_g_m2 / 1000,
+            'totalMass_kg': area * total_areal_density_g_m2 / 1000,
+            'temperature_K': thermal['temperature_K'],
+            'withinAssumedThermalLimit': thermal['temperature_K'] <= limit_K}
+
+
+def nano_swarm_launch(chip_payload_kg=0.001, payload_kg=1, sail_to_payload=1,
+                       speed_fraction=0.2, power_W=1e11, wall_efficiency=0.5,
+                       turnaround_s=0, duty_cycle=1, price_per_kWh=0.1):
+    """One sequential shot per chip; kg payload excludes sail, includes chip bus.
+
+    Last chip may be partially loaded. Array time counts emitted photons,
+    not overlapping photon catch-up; turnaround/duty and costs are assumptions.
+    """
+    _em_positive(chip_payload_kg=chip_payload_kg, payload_kg=payload_kg,
+                 wall_efficiency=wall_efficiency, duty_cycle=duty_cycle)
+    if (not math.isfinite(sail_to_payload) or sail_to_payload < 0
+            or not math.isfinite(turnaround_s) or turnaround_s < 0
+            or not math.isfinite(price_per_kWh) or price_per_kWh < 0
+            or wall_efficiency > 1 or duty_cycle > 1):
+        raise ValueError('invalid overhead, efficiency, duty or price')
+    count = math.ceil(payload_kg / chip_payload_kg)
+    shot = nano_laser_shot(chip_payload_kg * (1 + sail_to_payload), speed_fraction, power_W)
+    total = nano_laser_shot(payload_kg * (1 + sail_to_payload), speed_fraction, power_W)
+    electric_GWh = total['emittedEnergy_J'] / wall_efficiency / 3.6e12
+    return {'chips': count, 'chipShot': shot, 'totalAcceleratedMass_kg': payload_kg * (1 + sail_to_payload),
+            'optical_GWh': total['emittedEnergy_J'] / 3.6e12,
+            'electrical_GWh': electric_GWh, 'kineticEnergy_J': total['kineticEnergy_J'],
+            'arrayTime_days': (total['emission_s'] + count * turnaround_s) / duty_cycle / 86400,
+            'electricityCost': electric_GWh * 1e6 * price_per_kWh}
+
+
+def nano_dust_column(area_m2=1e-6, grain_radius_m=1e-7,
+                      grain_density_kg_m3=3000, n_H_cm3=0.1,
+                      dust_to_gas=0.01, distance_ly=4.24,
+                      destructive_mass_fraction=0):
+    """Monodisperse dust sensitivity model, NOT an ISM size distribution.
+
+    Gas mass/H=1.4 m_p. For the selected grain size assume the specified
+    fraction of *dust mass* is destructive. Poisson survival excludes erosion,
+    radiation, common-mode failures, and propulsion/assembly losses.
+    """
+    _em_positive(area_m2=area_m2, grain_radius_m=grain_radius_m,
+                 grain_density_kg_m3=grain_density_kg_m3, n_H_cm3=n_H_cm3,
+                 dust_to_gas=dust_to_gas, distance_ly=distance_ly)
+    if not math.isfinite(destructive_mass_fraction) or not 0 <= destructive_mass_fraction <= 1:
+        raise ValueError('mass fraction must be in [0,1]')
+    rho = n_H_cm3 * 1e6 * 1.4 * PROTON_MASS_KG * dust_to_gas
+    column = rho * distance_ly * LIGHT_YEAR
+    grain = 4 * math.pi / 3 * grain_radius_m**3 * grain_density_kg_m3
+    hits = column * area_m2 / grain
+    return {'dustDensity_kg_m3': rho, 'dustColumn_kg_m2': column,
+            'grainMass_kg': grain, 'expectedHitsIfAllDustThisSize': hits,
+            'hydrogenColumn_cm2': n_H_cm3 * distance_ly * LIGHT_YEAR * 100,
+            'poissonSurvival': math.exp(-hits * destructive_mass_fraction)}
+
+
+def nano_redundancy(survival, required_chips=1, confidence=0.99):
+    """Expectation mass factor and exact at-least-one Bernoulli requirement.
+
+    Expected launches for k survivors is k/s, NOT a high-confidence k-of-n result.
+    """
+    _em_positive(survival=survival, confidence=confidence)
+    if survival > 1 or confidence >= 1 or not isinstance(required_chips, int) or required_chips < 1:
+        raise ValueError('invalid probability or chip count')
+    return {'expectedMassFactor': 1 / survival,
+            'launchesForExpectedCount': math.ceil(required_chips / survival),
+            'launchesForOneAtConfidence': 1 if survival == 1 else math.ceil(
+                math.log1p(-confidence) / math.log1p(-survival)),
+            'copiesPerUniqueRole': 1 if survival == 1 else math.ceil(
+                math.log(-math.expm1(math.log(confidence) / required_chips))
+                / math.log1p(-survival))}
+
+
+def nano_arrival(speed_km_s=300, fractional_speed_error=1e-6,
+                  pointing_error_rad=1e-9, launch_span_s=0, gather_years=1,
+                  distance_ly=4.24):
+    """Linear ballistic spread scales in the target frame; no capture model.
+
+    Treat input errors and launch span as separate characteristic widths.
+    Gathering dv is two burns to traverse transverse separation in gather time.
+    """
+    _em_positive(speed_km_s=speed_km_s, gather_years=gather_years, distance_ly=distance_ly)
+    if speed_km_s * 1000 >= LIGHT_SPEED:
+        raise ValueError('speed must be subluminal')
+    if any(not math.isfinite(x) or x < 0 for x in
+           (fractional_speed_error, pointing_error_rad, launch_span_s)):
+        raise ValueError('errors and span must be finite and nonnegative')
+    distance = distance_ly * LIGHT_YEAR
+    flight = distance / (speed_km_s * 1000)
+    transverse = distance * pointing_error_rad
+    arrival = flight * fractional_speed_error
+    return {'trip_years': flight / JULIAN_YEAR,
+            'speedError_m_s': speed_km_s * 1000 * fractional_speed_error,
+            'arrivalError_s': arrival, 'transverseSpread_m': transverse,
+            'longitudinalSpread_m': distance * fractional_speed_error,
+            'launchSpanSeparation_m': speed_km_s * 1000 * launch_span_s,
+            'transverseGatherDeltaV_m_s': 2 * transverse / (gather_years * JULIAN_YEAR)}
+
+
+def nano_seed_chips(seed_kg, chip_kg=0.001):
+    """Mass accounting for an assumed seed mass, not a viable factory design."""
+    _em_positive(seed_kg=seed_kg, chip_kg=chip_kg)
+    return math.ceil(seed_kg / chip_kg)
+
+
+def nano_optical_link(power_W=1000, transmitter_m=10, receiver_m=10,
+                       wavelength_m=1e-6, distance_ly=4.24, efficiency=0.2,
+                       bits_per_photon=1, design_bytes=1e9):
+    """On-axis diffraction-limited circular apertures, small receiving aperture.
+
+    P_r/P_t = (pi Dt Dr/(4 lambda d))². Effective efficiency bundles throughput,
+    pointing and detection; bits/detected photon is assumed, not a capacity claim.
+    """
+    _em_positive(power_W=power_W, transmitter_m=transmitter_m, receiver_m=receiver_m,
+                 wavelength_m=wavelength_m, distance_ly=distance_ly, efficiency=efficiency,
+                 bits_per_photon=bits_per_photon, design_bytes=design_bytes)
+    gain = (math.pi * transmitter_m * receiver_m /
+            (4 * wavelength_m * distance_ly * LIGHT_YEAR))**2
+    if efficiency > 1 or gain >= 0.01:
+        raise ValueError('invalid efficiency or receiver outside small-aperture regime')
+    photons = power_W * gain * efficiency / (PLANCK * LIGHT_SPEED / wavelength_m)
+    rate = photons * bits_per_photon
+    return {'detectedPhotons_s': photons, 'rate_bit_s': rate,
+            'designTransmit_years': design_bytes * 8 / rate / JULIAN_YEAR,
+            'firstBitLatency_years': distance_ly,
+            'lastBitArrival_years': distance_ly + design_bytes * 8 / rate / JULIAN_YEAR}
+
+
+class NanoSwarmTests(unittest.TestCase):
+    def test_laser_energy_momentum_and_retarded_time(self):
+        for b in (0, 0.001, 0.046, 0.2, 0.9):
+            shot = nano_laser_shot(speed_fraction=b)
+            gamma = 1 / math.sqrt(1 - b*b)
+            reflected = shot['emittedEnergy_J'] - shot['kineticEnergy_J']
+            # Independent energy/momentum conservation with outgoing photons.
+            self.assertAlmostEqual((shot['emittedEnergy_J'] + reflected) / LIGHT_SPEED,
+                                   0.001 * gamma * b * LIGHT_SPEED, delta=1e-7)
+            self.assertAlmostEqual(shot['acceleration_s'] - shot['emission_s'],
+                                   shot['distance_m'] / LIGHT_SPEED, delta=1e-10)
+        small = nano_laser_shot(speed_fraction=1e-5)
+        self.assertAlmostEqual(small['kineticEnergy_J'] / (0.5 * 0.001 * (1e-5 * LIGHT_SPEED)**2), 1, places=8)
+
+    def test_moving_mirror_force_matches_independent_time_quadrature(self):
+        # dt/db = mc² gamma³ (1+b)/(2P(1-b)); integrate independently.
+        b, n, power, mass = 0.2, 4000, 1e11, 0.001
+        step = b / n
+        f = lambda x: mass * LIGHT_SPEED**2 / (2*power) * (1-x*x)**-1.5 * (1+x)/(1-x)
+        integral = step/3 * (f(0) + f(b) + sum((4 if i % 2 else 2)*f(i*step) for i in range(1,n)))
+        self.assertAlmostEqual(nano_laser_shot()['acceleration_s'], integral, places=8)
+        b = nano_laser_speed(2)
+        self.assertAlmostEqual(nano_laser_shot(1, b, 1e9/0.002)['acceleration_s'], 600, places=8)
+
+    def test_splitting_preserves_density_speed_and_total_energy(self):
+        base = nano_solar_chip(payload_kg=1)
+        launch = nano_swarm_launch()
+        for mass in (1e-6, 1e-5, 1e-4, 1e-3):
+            row = nano_solar_chip(payload_kg=mass)
+            self.assertEqual(row['vInf_km_s'], base['vInf_km_s'])
+            self.assertAlmostEqual(row['area_m2'] / mass, base['area_m2'])
+            swarm = nano_swarm_launch(chip_payload_kg=mass)
+            self.assertAlmostEqual(swarm['electrical_GWh'], launch['electrical_GWh'])
+            self.assertAlmostEqual(swarm['arrayTime_days'], launch['arrayTime_days'])
+        self.assertGreater(nano_swarm_launch(chip_payload_kg=1e-6, turnaround_s=60)['arrayTime_days'],
+                           nano_swarm_launch(turnaround_s=60)['arrayTime_days'])
+        self.assertEqual(nano_swarm_launch(chip_payload_kg=0.3)['chips'], 4)
+
+    def test_solar_thermal_and_escape_limits(self):
+        g = sundiver_budget(approach='ellipse', reflectivity=0.9, absorptivity=0.1)
+        chip = nano_solar_chip(total_areal_density_g_m2=g['totalArealDensity_g_m2'])
+        self.assertAlmostEqual(chip['vInf_km_s'], 300)
+        self.assertAlmostEqual(chip['totalMass_kg'], g['totalMass_kg']/1000)
+        self.assertTrue(chip['withinAssumedThermalLimit'])
+        self.assertFalse(nano_solar_chip(limit_K=900)['withinAssumedThermalLimit'])
+        self.assertIsNone(nano_solar_chip(total_areal_density_g_m2=1000)['vInf_km_s'])
+
+    def test_dust_hit_counts_mass_column_and_survival(self):
+        row = nano_dust_column(destructive_mass_fraction=1e-5)
+        self.assertAlmostEqual(row['expectedHitsIfAllDustThisSize'] * row['grainMass_kg'],
+                               row['dustColumn_kg_m2'] * 1e-6)
+        large = nano_dust_column(grain_radius_m=2e-7)
+        self.assertAlmostEqual(large['expectedHitsIfAllDustThisSize'], row['expectedHitsIfAllDustThisSize']/8)
+        self.assertAlmostEqual(nano_dust_column(area_m2=2e-6)['expectedHitsIfAllDustThisSize'],
+                               2*row['expectedHitsIfAllDustThisSize'])
+        self.assertAlmostEqual(nano_kinetic_energy(1e-9, 0.2), 1.85329844e6, delta=1)
+        self.assertAlmostEqual(nano_kinetic_energy(1e-9, 0.001), 44.9377926, delta=1e-5)
+        self.assertAlmostEqual(row['poissonSurvival'], math.exp(-row['expectedHitsIfAllDustThisSize']*1e-5))
+
+    def test_redundancy_is_explicitly_conditional(self):
+        for s, expected in ((0.9, 2), (0.5, 7), (0.1, 44), (1, 1)):
+            row = nano_redundancy(s, 1000)
+            self.assertEqual(row['launchesForOneAtConfidence'], expected)
+            self.assertGreaterEqual(1 - (1-s)**expected, 0.99)
+            if expected > 1:
+                self.assertLess(1 - (1-s)**(expected-1), 0.99)
+            self.assertGreaterEqual(row['launchesForExpectedCount']*s, 1000)
+            copies = row['copiesPerUniqueRole']
+            self.assertGreaterEqual((1-(1-s)**copies)**1000, 0.99)
+            if copies > 1:
+                self.assertLess((1-(1-s)**(copies-1))**1000, 0.99)
+
+    def test_arrival_gathering_seed_and_link_scalings(self):
+        row = nano_arrival(speed_km_s=0.2*LIGHT_SPEED/1000)
+        self.assertAlmostEqual(row['trip_years'], 21.2)
+        self.assertAlmostEqual(row['transverseSpread_m'], 4.01134972e7, delta=1)
+        self.assertAlmostEqual(row['transverseGatherDeltaV_m_s'], 2.54224, delta=1e-4)
+        self.assertAlmostEqual(nano_arrival()['arrivalError_s']/86400, 1.5476, delta=1e-4)
+        self.assertEqual(nano_seed_chips(100000), 100000000)
+        link = nano_optical_link()
+        self.assertAlmostEqual(nano_optical_link(receiver_m=20)['rate_bit_s'], 4*link['rate_bit_s'])
+        self.assertAlmostEqual(nano_optical_link(distance_ly=8.48)['rate_bit_s'], link['rate_bit_s']/4)
+        self.assertAlmostEqual(link['lastBitArrival_years'] - link['designTransmit_years'], 4.24)
+
+    def test_invalid_inputs(self):
+        for function, kwargs in (
+                (nano_kinetic_energy, {'mass_kg': 1, 'speed_fraction': 1}),
+                (nano_laser_shot, {'speed_fraction': -0.1}),
+                (nano_laser_shot, {'power_W': math.nan}),
+                (nano_laser_speed, {'total_areal_density_g_m2': 0}),
+                (nano_solar_chip, {'total_areal_density_g_m2': 0.5}),
+                (nano_solar_chip, {'aphelion_AU': 0.001}),
+                (nano_swarm_launch, {'wall_efficiency': 2}),
+                (nano_swarm_launch, {'duty_cycle': 0}),
+                (nano_swarm_launch, {'sail_to_payload': -1}),
+                (nano_dust_column, {'destructive_mass_fraction': 1.1}),
+                (nano_redundancy, {'survival': 0}),
+                (nano_redundancy, {'survival': 0.5, 'confidence': 1}),
+                (nano_arrival, {'pointing_error_rad': math.nan}),
+                (nano_arrival, {'speed_km_s': LIGHT_SPEED/1000}),
+                (nano_seed_chips, {'seed_kg': 0}),
+                (nano_optical_link, {'efficiency': 2})):
+            with self.subTest(function=function.__name__, kwargs=kwargs):
+                with self.assertRaises(ValueError):
+                    function(**kwargs)
+
+
 if __name__ == '__main__':
+    print('\n== Nano-swarm (issue #74; conditional bounds, not an assembly simulation) ==')
+    for density in (0.75, 1, 2.0476229, 5, 10):
+        print('  total density g/m²:', density, 'solar:', nano_solar_chip(total_areal_density_g_m2=density),
+              'laser km/s at 1 GW/m² for 600 s:', nano_laser_speed(density)*LIGHT_SPEED/1000)
+    for mass in (1e-6, 1e-5, 1e-4, 1e-3):
+        print('  chip payload kg:', mass, 'solar:', nano_solar_chip(payload_kg=mass),
+              'laser swarm:', nano_swarm_launch(chip_payload_kg=mass),
+              '60 s turnaround calendar days:', nano_swarm_launch(chip_payload_kg=mass, turnaround_s=60)['arrayTime_days'])
+    print('  dust 0.1 micron, 1 mm²:', nano_dust_column())
+    print('  1 microgram impact J at 0.2c / 0.001c:',
+          nano_kinetic_energy(1e-9, 0.2), nano_kinetic_energy(1e-9, 0.001))
+    for speed in (300, 0.046*LIGHT_SPEED/1000, 0.2*LIGHT_SPEED/1000):
+        print('  arrival speed km/s:', speed, nano_arrival(speed_km_s=speed))
+    print('  assumed Earth-to-factory optical link:', nano_optical_link())
+    print('  VERDICT: distributed flybys are meaningful; splitting alone gives no speed gain. '
+          'Capture, gathering and a closed ISRU factory are separate unsolved systems.')
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromTestCase(case)
-                           for case in (EMRailTests, CometHitchhikeTests, OrionSundiverTests)))
+                           for case in (EMRailTests, CometHitchhikeTests, OrionSundiverTests, NanoSwarmTests)))
     sys.exit(0 if result.wasSuccessful() else 1)
