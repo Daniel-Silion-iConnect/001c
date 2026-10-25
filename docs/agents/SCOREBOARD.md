@@ -81,3 +81,13 @@ Round 7 review adjustments (coordinator code review of #48–#51): the physics m
 | PR | Agent | Task | Correct (10) | Autonomy (10) | Quality (10) | Total | Notes |
 |----|-------|------|---|---|---|---|-------|
 | #61 | Codex (gpt-6.1-sol high, full-access) | Concept F pellet material + narrative | 10 | 10 | 10 | 30 | 7 materials; Al recommended; spot-checked d, ionisation, gyroradius; honest ram-vs-magnetic-pressure caveat; 6 tests |
+
+## Round 8 (2026-10-25): physics deep dives
+
+| PR | Agent | Task | Correct (10) | Autonomy (10) | Quality (10) | Total | Notes |
+|----|-------|------|---|---|---|---|-------|
+| #64 | Codex (gpt-6.1-sol high, full-access) | full-story collapsible card | 10 | 10 | 10 | 30 | Shared disclosure card; mobile collapsed |
+| #67 | Codex | Concept F ionisation beam + magnetic reflection | 10 | 10 | 10 | 30 | Caught the coordinator's 5 kJ/g error (really 5 MJ/g); coil 0.76–2.1 MA, 4–12 t |
+| #68 | Codex | EM rail limits | 10 | 10 | 10 | 30 | Lengths spot-checked; verdict: 2.5–5 km/s lunar coilgun |
+| #70 | Codex | Great Comet 1843 hitchhike | 10 | 10 | 10 | 30 | Exact 74.535 km/s burn; independently confirmed |
+| #72 | Codex | Orion + sundiver sail, Concept G | 10 | 10 | 10 | 30 | Corrected β: 0.708 for a parabolic dive vs 1.708 from rest; checked |
