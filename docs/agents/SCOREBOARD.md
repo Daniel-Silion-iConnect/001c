@@ -92,3 +92,4 @@ Round 7 review adjustments (coordinator code review of #48–#51): the physics m
 | #70 | Codex | Great Comet 1843 hitchhike | 10 | 10 | 10 | 30 | Exact 74.535 km/s burn; independently confirmed |
 | #72 | Codex | Orion + sundiver sail, Concept G | 10 | 10 | 10 | 30 | Corrected β: 0.708 for a parabolic dive vs 1.708 from rest; checked |
 | #75 | Codex | Nano-swarm analysis + claims check, Concept H | 10 | 10 | 10 | 30 | Picked up the mid-run claims addendum; Airy radius and accel spot-checked; magsail 0.2c→41 yr, 1,906 t |
+| #78 | Codex | Alpha Cen A/B capture vs Proxima trade | 10 | 10 | 10 | 30 | Recommends A primary; hop Δv spot-checked (A→B 34 km/s at 20 km/s v∞); S1 kept as candidate |
