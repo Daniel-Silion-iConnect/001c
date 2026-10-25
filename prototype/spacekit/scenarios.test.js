@@ -92,6 +92,28 @@ test('concept B baseline matches §3.3 with a modelled solar sail', () => {
   assert.equal(doc.targetAsymptotic_km_s, 107.56);
 });
 
+test('concept G deploys at 3 solar radii with the bound-arrival energy accounted for', () => {
+  const doc = scenarios['concept-g'];
+  const out = applyTrajectory(doc);
+  const q = 3 * 695700;
+  const mu = 1.32712440018e11;
+  const a = (5.204 * AU_KM + q) / 2;
+  assert.equal(doc.events.length, 1);
+  assert.equal(doc.events[0].type, 'solarSail');
+  assert.equal(doc.events[0].location, 'perihelion');
+  close(out.log[0].after.r_AU, q / AU_KM, 1e-12, 'deployment radius');
+  close(doc.events[0].beta, (300 ** 2 + mu / a) / (2 * mu / q), 1e-12, 'required beta');
+  assert.equal(out.log[0].before.vInf_km_s, null);
+  assert.ok(doc.initialElements.e < 1 && doc.initialElements.a > 0);
+  close(out.vInf_km_s, 300, 1e-6, 'solar v∞ including remaining sail work');
+  close(out.totalDeltaV_km_s, 0, 0, 'no impulsive delta-v');
+  close(out.log[0].sail.remainingWork_km2_s2 - mu / (2 * a), 45000, 1e-8, 'energy gain');
+  // A jettison keeps delivered work only: the 300 km/s target needs the tail.
+  const finite = applyTrajectory({ ...doc, events: [...doc.events,
+    { type: 'solarSail', beta: 0, location: 60 }] });
+  assert.ok(finite.vInf_km_s > 0 && finite.vInf_km_s < out.vInf_km_s);
+});
+
 test('concept C baseline matches §4.3', () => {
   const doc = scenarios['concept-c-baseline'];
   const out = applyTrajectory(doc);
@@ -168,7 +190,7 @@ test('picker lists only index entries and defaults to the fastest final v∞', (
 });
 
 test('exotic picker entries clearly label speculation and expose feasibility and showstoppers', () => {
-  for (const id of ['concept-d', 'concept-e', 'concept-f']) {
+  for (const id of ['concept-d', 'concept-e', 'concept-f', 'concept-g']) {
     const entry = index.find(entry => entry.id === id);
     assert.equal(entry.category, 'exotic');
     const option = pickerOptions(index).find(option => option.id === entry.id);

@@ -200,6 +200,15 @@ central-body parameter. Flyby bodies retain their true-gravity orbital speeds.
 The 97.66 km/s pure-sail reference assumes a parabolic arrival at 10 R☉; removing
 the kick from Concept B's bound transfer ellipse yields a slightly lower speed.
 
+[Concept G](../prototype/spacekit/scenarios/scenario-g.json) deploys at 3 R☉
+on a delivered 5.204 AU aphelion ellipse, with β = 0.710365490 and no impulse,
+for projected v∞ = 300 km/s while retained to infinity. This exotic carbon-sail
+study assumes a 1 kg shielded probe, ~646 m² at 0.5 g/m² distributed sail/support
+mass, 90% solar reflection and 10% absorption. The combined material and hardware
+budget is unproven. A parabolic arrival needs β ≈ 0.708; the often quoted β ≈ 1.708
+instead assumes release from rest and is outside the current conic solver.
+See the [sourced approach-energy, mass and heat analysis](analyses/orion-and-sundiver-hybrid.md).
+
 ### `gravityAssist`
 
 Patched-conic flyby with a zero-radius sphere of influence at the probe's position.

@@ -175,6 +175,12 @@ schema inputs; `viewer.js` handles loading, HUD, and renderer selection.
 
 ## Reference scenarios
 
+Concept G adds an exotic, conditional carbon `solarSail` at 3 solar radii:
+β = 0.710365490 on a delivered 5.204 AU aphelion ellipse predicts 300 km/s
+solar v∞ with zero impulsive Δv. Its ~646 m² sail and 1 kg shielded probe assume
+unproven combined optics, heat rejection, deployment and mass properties.
+See the [Orion/sundiver analysis](../../docs/analyses/orion-and-sundiver-hybrid.md).
+
 Concept F adds an exotic, speculative chirped `pelletStream`: 3.75 kg of
 reflected pellets gives a 2 kg probe 300 km/s Δv and solar v∞ 317.665 km/s.
 Its initial speed at 5 AU already includes the Python reference's conservative
