@@ -19,6 +19,23 @@ Goal: v∞ ≥ 300 km/s (0.001c) for a 1 kg probe. The owner seeded two ideas (a
 | 9 | Antimatter: solid-core thermal (owner) | Owner | v_e ≈ 10 km/s → MR = e³⁰ ≈ 10¹³ | 2 | Wall temperature caps v_e; only useful as an Oberth-burn engine (≈ NTP class) | No-go |
 | 10 | MagLIF micro-pulse "Orion-Oberth" kicker | Antigravity | Agent claims 312 km/s. **Checked: 62–96 km/s ⚠** (its own formula gives v_e = 9.5 km/s, not 300; alpha-only 4.2 km/s) | 1–2 | ~150 g flux-compression generators reaching 20 MA ignition | No-go |
 
+### Great Comet of 1843 hitchhike (issue #69)
+
+The sourced [C/1843 D1 analysis](comet-hitchhike.md) finds **566.6 km/s at
+1.1885 R☉**, but a bound orbit: **ε = −6.902 km²/s²**, **Q = 128.53 AU**,
+and no real solar v∞ for an unpowered rider. An ideal prograde perihelion
+burn still needs **74.54 km/s Δv** for **300 km/s v∞** (small-kick estimate:
+79.43 km/s). A 24 km/s burn gives **166.6 km/s v∞**, versus **136.4 km/s**
+for [Concept C's 3.5 R☉ baseline](reference-scenarios.md#43-back-of-envelope-calculation-concept-c),
+at **8.67× its irradiance**. At the comet: **44.55 MW/m²**, **5294 K** for a
+black one-face shield, **98.7 min inside 2 R☉**. Finite solar-disk geometry
+leaves only **189 m** of umbra beyond an assumed spherical 1 km nucleus.
+Illustrative gas effects are orders of magnitude below the required kick;
+dust, erosion, breakup and retrograde rendezvous remain serious barriers.
+**Verdict: no-go as passive escape; poor substitute for Concept C's controlled
+Oberth dive.** This is a physical limit study, not a new ranked propulsion
+architecture or an implemented `hitchhike` event.
+
 ### Top 3
 1. **Photon-recycling cavity catapult**: 307 km/s v∞ with no solar dive, for 78 MWh per shot. The Moon is the ideal recoil anchor (a free-flying one would need ≥560 t).
 2. **Po-210 alpha-voltaic ion drive**: 317 km/s Δv from 6.4 kg wet. The numbers check to <1%; the problem is supply and conversion efficiency.

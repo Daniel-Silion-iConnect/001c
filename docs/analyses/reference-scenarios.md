@@ -133,6 +133,15 @@ Eliminates external tether infrastructure in favor of a self-contained hybrid ve
 ## 4. Concept C: Infrastructure-Heavy (Pre-Deployed Tether Chain + STP/NTP Oberth) *(Speculative / Aspirational Full Stack)*
 
 ### 4.1 Architecture Overview
+
+The [C/1843 D1 hitchhike analysis](comet-hitchhike.md) checks whether a natural
+sungrazer can replace this infrastructure. Its 566.6 km/s at 1.1885 R☉ is
+bound orbital motion (ε = −6.902 km²/s², aphelion 128.53 AU), so riding it
+alone supplies no escape. A 24 km/s prograde burn there yields 166.6 km/s v∞
+versus this baseline's 136.4 km/s; reaching 300 km/s by the burn alone needs
+74.5 km/s Δv and faces 44.6 MW/m², 8.67 times the flux at 3.5 R☉. Nucleus
+shade, gas recoil and survival estimates do not make it a practical shortcut.
+
 Concept C is the speculative/aspirational full-stack architecture formulated to reach the [`GOAL.md`](../../GOAL.md) target of **$0.001c$ ($\approx 300\text{ km/s}$)**. While its solar-thermal propulsion (STP) Oberth core is grounded in NASA/APL studies ($v_{\infty,\text{SOM}} \approx 136\text{–}182\text{ km/s}$), closing the remaining gap to $300\text{ km/s}$ under linear far-field addition requires $+110\text{ km/s}$ from an outbound CNT tether highway (or $+37\text{ km/s}$ if tethers act right at perihelion), making the full-stack $0.001c$ case explicitly **aspirational**. It combines:
 1. **Inbound Tether Network + Jupiter Assist *(Speculative)*:** Pre-deployed inner/outer solar system rotovators plus a retrograde Jupiter assist inject the upper stage onto a hyperbolic solar plunge ($v_{\infty,\text{in}} = 45\text{–}70\text{ km/s}$).
 2. **Transpiration-Cooled Solar-Thermal Propulsion (STP) Oberth Maneuver at $r_p = 2.8\text{–}3.5\,R_\odot$ *(Sourced Literature Concept)*:** Using liquid hydrogen ($H_2$) routed through a regenerative/transpiration-cooled refractory heat shield that doubles as a solar-thermal heat exchanger ($I_{\text{sp}} = 1000\text{–}1250\text{ s}$, per Lyman et al. [12] and Benkoski NIAC [13]), achieving $\Delta v_{\text{STP}} = 24\text{–}36\text{ km/s}$ at extreme perihelion.

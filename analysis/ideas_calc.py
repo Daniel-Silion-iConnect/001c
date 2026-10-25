@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""First-order checks for docs/analyses/{exotic-ideas,em-rail-limits}.md.
+"""First-order checks for the propulsion studies in docs/analyses/.
 Run: python3 analysis/ideas_calc.py   (stdlib only, deterministic)."""
 import math
 import sys
@@ -812,7 +812,311 @@ print("  lunar ring at 300 km/s, 10000 g tangential:", em_lunar_ring_budget(300,
 print("  VERDICT: lunar contactless coilgun, 2.5-5 km/s first stage is a development candidate; "
       "10 km/s is a stretch; 300 km/s is not a realistic rail baseline.")
 
+# C/1843 D1: JPL SBDB SAO_2008 / Kreutz, retrieved 2026-10-25.
+# Freeze the published inputs; tests never fetch a changing orbit solution.
+# Source provenance, formula derivations and limitations: comet-hitchhike.md.
+COMET_Q_AU = 0.005527
+COMET_E = 0.999914
+COMET_I_DEG = 144.3548
+COMET_ARGP_DEG = 82.6390
+
+
+def comet_orbit(q_AU=COMET_Q_AU, eccentricity=COMET_E):
+    """Bound two-body ellipse; None means no real solar escape v-infinity."""
+    _em_positive(q_AU=q_AU)
+    if not math.isfinite(eccentricity) or not 0 <= eccentricity < 1:
+        raise ValueError('comet orbit requires 0 <= eccentricity < 1')
+    q = q_AU * AU
+    a = q / (1 - eccentricity)
+    energy = -MU_SUN / (2 * a)
+    return {
+        'q_km': q / 1000, 'altitude_km': (q - R_SUN) / 1000,
+        'q_Rsun': q / R_SUN, 'a_AU': a / AU,
+        'aphelion_AU': a * (1 + eccentricity) / AU,
+        'period_years': 2 * math.pi * math.sqrt(a**3 / MU_SUN) / (365.25 * 86400),
+        'specificEnergy_km2_s2': energy / 1e6,
+        'perihelionSpeed_km_s': kms(math.sqrt(MU_SUN * (1 + eccentricity) / q)),
+        'escapeSpeed_km_s': kms(math.sqrt(2 * MU_SUN / q)),
+        'bound': True, 'vInf_km_s': None,
+    }
+
+
+def comet_oberth_burn(q_AU=COMET_Q_AU, specific_energy_km2_s2=None,
+                      delta_v_km_s=24, target_vinf_km_s=300):
+    """Tangential, instantaneous prograde burn; energy may be bound or unbound.
+
+    Default energy is the catalog comet's, even if q is overridden. For a
+    different incoming orbit, explicitly supply its energy. Approximation
+    drops both incoming energy and dv^2; it is only near-parabolic/small-kick.
+    """
+    _em_positive(q_AU=q_AU)
+    if specific_energy_km2_s2 is None:
+        specific_energy_km2_s2 = comet_orbit()['specificEnergy_km2_s2']
+    for value in (specific_energy_km2_s2, delta_v_km_s, target_vinf_km_s):
+        if not math.isfinite(value):
+            raise ValueError('burn inputs must be finite')
+    if delta_v_km_s < 0 or target_vinf_km_s < 0:
+        raise ValueError('burn and target speeds must be nonnegative')
+    escape2 = 2 * MU_SUN / (q_AU * AU) / 1e6
+    speed2 = escape2 + 2 * specific_energy_km2_s2
+    if speed2 <= 0:
+        raise ValueError('incoming orbit has no moving state at this radius')
+    speed = math.sqrt(speed2)
+    # Rationalise the difference to preserve small kicks on nearly parabolic orbits.
+    required = (target_vinf_km_s**2 - 2 * specific_energy_km2_s2) / (
+        math.sqrt(escape2 + target_vinf_km_s**2) + speed)
+    energy = specific_energy_km2_s2 + speed * delta_v_km_s + delta_v_km_s**2 / 2
+    return {
+        'perihelionSpeed_km_s': speed, 'specificEnergyAfter_km2_s2': energy,
+        'vInf_km_s': math.sqrt(2 * energy) if energy >= 0 else None,
+        'targetDeltaV_km_s': required,
+        'parabolicApproxDeltaV_km_s': target_vinf_km_s**2 / (2 * speed),
+    }
+
+
+def comet_passage(radius_Rsun, q_AU=COMET_Q_AU, eccentricity=COMET_E):
+    """Exact unpowered elliptic residence time and normal-plane solar fluence.
+
+    Both inbound and outbound legs inside the specified radius. Fluence uses
+    r^2 dnu/dt = h, so integral F dt = S AU^2 * 2 nu / h. The impulse case
+    has a different outgoing conic and is not represented by this window.
+    """
+    orbit = comet_orbit(q_AU, eccentricity)
+    _em_positive(radius_Rsun=radius_Rsun)
+    q = q_AU * AU
+    radius = radius_Rsun * R_SUN
+    if radius < q or radius > orbit['aphelion_AU'] * AU:
+        raise ValueError('window radius must be between perihelion and aphelion')
+    if eccentricity == 0:
+        raise ValueError('a circular orbit has no isolated perihelion passage')
+    p = q * (1 + eccentricity)
+    nu = math.acos(max(-1, min(1, (p / radius - 1) / eccentricity)))
+    anomaly = 2 * math.atan2(math.sqrt(1 - eccentricity) * math.sin(nu / 2),
+                             math.sqrt(1 + eccentricity) * math.cos(nu / 2))
+    a = q / (1 - eccentricity)
+    duration = 2 * math.sqrt(a**3 / MU_SUN) * (anomaly - eccentricity * math.sin(anomaly))
+    return {
+        'duration_s': duration, 'halfAngle_rad': nu,
+        'normalFluence_J_m2': 2 * SOLAR_FLUX_W_M2 * AU**2 * nu / math.sqrt(MU_SUN * p),
+    }
+
+
+def comet_thermal_budget(q_AU=COMET_Q_AU, absorptivity=1, emissivity=1,
+                         radiating_area_ratio=1, limit_K=1650):
+    """Normal flat shield balance; area ratio = emitting / projected area.
+
+    Sphere outputs distinguish point-source and uniform extended solar disk.
+    Limb darkening, sublimation, conduction and coronal heating are omitted.
+    Selective optical properties are assumptions, not material specifications.
+    """
+    _em_positive(q_AU=q_AU, absorptivity=absorptivity, emissivity=emissivity,
+                 radiating_area_ratio=radiating_area_ratio, limit_K=limit_K)
+    if absorptivity > 1 or emissivity > 1 or q_AU * AU <= R_SUN:
+        raise ValueError('optical fractions must be <= 1 and q outside the Sun')
+    flux = SOLAR_FLUX_W_M2 / q_AU**2
+    disk_factor = 2 / (1 + math.sqrt(1 - (R_SUN / (q_AU * AU))**2))
+    return {
+        'flux_W_m2': flux, 'suns': 1 / q_AU**2,
+        'equilibrium_K': (absorptivity * flux / (
+            emissivity * radiating_area_ratio * SIGMA_SB))**0.25,
+        'pointSourceBlackSphere_K': (flux / (4 * SIGMA_SB))**0.25,
+        'uniformDiskBlackSphere_K': (disk_factor * flux / (4 * SIGMA_SB))**0.25,
+        'sphereDiskFactor': disk_factor,
+        'maxAlphaOverEpsilon': radiating_area_ratio * SIGMA_SB * limit_K**4 / flux,
+        'solarHalfAngle_deg': math.degrees(math.asin(R_SUN / (q_AU * AU))),
+    }
+
+
+def comet_secondary_budget(nucleus_radius_m=1000, density_kg_m3=500,
+                            gas_speed_m_s=1000, sublimation_J_kg=2.8e6,
+                            gas_rate_kg_s=1e6, standoff_m=10000,
+                            area_mass_m2_kg=0.01, impact_speed_km_s=570):
+    """Illustrative scales, NOT measured C/1843 D1 physical properties.
+
+    Recoil upper scale spends all intercepted sunlight on gas, all momentum
+    aligned, fixed nucleus mass. Integrate normal flux inside 2q, then bound
+    the extended-disk correction by its peak value. A separate isotropic gas
+    example estimates local drag; it is not the total energy-limited rate.
+    """
+    _em_positive(nucleus_radius_m=nucleus_radius_m, density_kg_m3=density_kg_m3,
+                 gas_speed_m_s=gas_speed_m_s, sublimation_J_kg=sublimation_J_kg,
+                 gas_rate_kg_s=gas_rate_kg_s, standoff_m=standoff_m,
+                 area_mass_m2_kg=area_mass_m2_kg, impact_speed_km_s=impact_speed_km_s)
+    q = COMET_Q_AU * AU
+    if nucleus_radius_m >= q - R_SUN or standoff_m <= nucleus_radius_m:
+        raise ValueError('nucleus must clear Sun and gas sample must be outside nucleus')
+    thermal = comet_thermal_budget()
+    passage = comet_passage(2 * q / R_SUN)
+    flux = thermal['flux_W_m2']
+    correction = thermal['sphereDiskFactor']
+    mass = 4 / 3 * math.pi * density_kg_m3 * nucleus_radius_m**3
+    rate = math.pi * nucleus_radius_m**2 * flux * correction / sublimation_J_kg
+    recoil = 3 * gas_speed_m_s * passage['normalFluence_J_m2'] * correction / (
+        4 * density_kg_m3 * nucleus_radius_m * sublimation_J_kg)
+    ram = gas_rate_kg_s * gas_speed_m_s / (4 * math.pi * standoff_m**2)
+    return {
+        'nucleusMass_kg': mass,
+        # Similar triangles between the two spheres' common external tangents.
+        'umbraBeyondSurface_m': nucleus_radius_m * q / (R_SUN - nucleus_radius_m) - nucleus_radius_m,
+        'peakEnergyLimitedGasRate_kg_s': rate,
+        'recoilDeltaVUpperScale_m_s': recoil,
+        'lostMassFractionUpperScale': recoil / gas_speed_m_s,
+        'subsolarErosionScale_m': passage['normalFluence_J_m2'] / (density_kg_m3 * sublimation_J_kg),
+        'isotropicGasRamPressure_Pa': ram,
+        'gasImpulseScale_m_s': ram * area_mass_m2_kg * passage['duration_s'],
+        'tidalAcceleration_m_s2': 2 * MU_SUN * nucleus_radius_m / q**3,
+        'surfaceGravity_m_s2': 4 * math.pi * 6.6743e-11 * density_kg_m3 * nucleus_radius_m / 3,
+        'specificImpactEnergy_J_kg': 0.5 * (impact_speed_km_s * 1000)**2,
+        'oneMicrogramImpact_J': 0.5 * 1e-9 * (impact_speed_km_s * 1000)**2,
+    }
+
+
+def comet_rendezvous_scales(radius_AU=1):
+    """Catalog incoming state and node radii; no launch/rendezvous optimisation."""
+    orbit = comet_orbit()
+    _em_positive(radius_AU=radius_AU)
+    if not COMET_Q_AU < radius_AU < orbit['aphelion_AU']:
+        raise ValueError('sample must be strictly between the apsides')
+    p = COMET_Q_AU * AU * (1 + COMET_E)
+    h = math.sqrt(MU_SUN * p)
+    radius = radius_AU * AU
+    nu = -math.acos((p / radius - 1) / COMET_E)
+    radial = MU_SUN / h * COMET_E * math.sin(nu)
+    transverse = h / radius
+    circular = math.sqrt(MU_SUN / radius)
+    argp = math.radians(COMET_ARGP_DEG)
+    return {
+        'radialSpeed_km_s': kms(radial), 'transverseSpeed_km_s': kms(transverse),
+        'speed_km_s': kms(math.hypot(radial, transverse)),
+        # Minimum mismatch to ANY local circular velocity; not Earth's state.
+        'localCircularMismatchLowerBound_km_s': kms(math.hypot(radial, transverse - circular)),
+        'latitude_deg': math.degrees(math.asin(math.sin(math.radians(COMET_I_DEG)) * math.sin(argp + nu))),
+        'nodeRadii_AU': [p / (1 + COMET_E * math.cos(n)) / AU for n in (-argp, math.pi - argp)],
+    }
+
+
+class CometHitchhikeTests(unittest.TestCase):
+    def test_catalog_orbit_is_bound_despite_large_perihelion_speed(self):
+        row = comet_orbit()
+        self.assertAlmostEqual(row['q_km'], 826839.2, delta=0.1)
+        self.assertAlmostEqual(row['a_AU'], 64.2674419, delta=1e-7)
+        self.assertAlmostEqual(row['aphelion_AU'], 128.5293567, delta=1e-7)
+        self.assertAlmostEqual(row['specificEnergy_km2_s2'], -6.901724, delta=1e-6)
+        self.assertAlmostEqual(row['perihelionSpeed_km_s'], 566.565634, delta=1e-6)
+        self.assertTrue(row['bound'])
+        self.assertIsNone(row['vInf_km_s'])
+        # Energy reconstructed independently by vis-viva, including cancellation.
+        self.assertAlmostEqual(0.5 * row['perihelionSpeed_km_s']**2 -
+            MU_SUN / (row['q_km'] * 1000) / 1e6, row['specificEnergy_km2_s2'], delta=1e-9)
+        self.assertIsNone(comet_oberth_burn(delta_v_km_s=0)['vInf_km_s'])
+
+    def test_exact_burn_and_concept_c_comparison(self):
+        ref = comet_oberth_burn()
+        self.assertAlmostEqual(ref['targetDeltaV_km_s'], 74.535311, delta=1e-6)
+        self.assertAlmostEqual(ref['parabolicApproxDeltaV_km_s'], 79.425926, delta=1e-6)
+        self.assertAlmostEqual(ref['vInf_km_s'], 166.605363, delta=1e-6)
+        exact = comet_oberth_burn(delta_v_km_s=ref['targetDeltaV_km_s'])
+        self.assertAlmostEqual(exact['specificEnergyAfter_km2_s2'], 45000, delta=1e-8)
+        self.assertAlmostEqual(exact['vInf_km_s'], 300, delta=1e-10)
+        c_ref = comet_oberth_burn(3.5 * R_SUN / AU, 45**2 / 2)
+        self.assertAlmostEqual(c_ref['vInf_km_s'], 136.36, delta=0.01)
+        self.assertAlmostEqual(c_ref['targetDeltaV_km_s'], 112.89, delta=0.02)
+        escape = comet_oberth_burn(target_vinf_km_s=0)['targetDeltaV_km_s']
+        self.assertAlmostEqual(escape * 1000, 12.181554, delta=1e-6)
+        # Small-kick approximation converges on an exactly parabolic incoming leg.
+        tiny = comet_oberth_burn(specific_energy_km2_s2=0, target_vinf_km_s=1)
+        self.assertAlmostEqual(tiny['targetDeltaV_km_s'] / tiny['parabolicApproxDeltaV_km_s'], 1, delta=1e-6)
+
+    def test_passage_against_areal_law_quadrature_and_parabolic_limit(self):
+        q = COMET_Q_AU * AU
+        p = q * (1 + COMET_E)
+        row = comet_passage(2 * q / R_SUN)
+        # Integrate dt/dnu = r(nu)^2/h independently of eccentric anomaly.
+        n = 2000
+        step = row['halfAngle_rad'] / n
+        f = lambda nu: (p / (1 + COMET_E * math.cos(nu)))**2 / math.sqrt(MU_SUN * p)
+        weights = sum((4 if j % 2 else 2) * f(j * step) for j in range(1, n))
+        duration = 2 * step / 3 * (f(0) + weights + f(n * step))
+        self.assertAlmostEqual(row['duration_s'], duration, delta=1e-6)
+        # For e=1 and r=2q, Barker's variable D=1; time in window = 2 sqrt(2q^3/mu)*4/3.
+        parabolic = 2 * math.sqrt(2 * q**3 / MU_SUN) * 4 / 3
+        self.assertAlmostEqual(row['duration_s'] / parabolic, 1, delta=1e-4)
+        self.assertAlmostEqual(row['normalFluence_J_m2'] / 1e9, 204.2734, delta=0.001)
+        self.assertEqual(comet_passage(q / R_SUN)['duration_s'], 0)
+        self.assertAlmostEqual(comet_passage(2)['duration_s'] / 60, 98.69, delta=0.01)
+        circular = comet_orbit(1, 0)
+        self.assertAlmostEqual(circular['perihelionSpeed_km_s'], math.sqrt(MU_SUN / AU) / 1000)
+
+    def test_heat_and_extended_sun_geometry(self):
+        row = comet_thermal_budget()
+        self.assertAlmostEqual(row['flux_W_m2'] / 1e6, 44.553230, delta=1e-6)
+        self.assertAlmostEqual(row['equilibrium_K'], 5294.4014, delta=0.001)
+        self.assertAlmostEqual(row['uniformDiskBlackSphere_K'], 3996.25, delta=0.1)
+        self.assertAlmostEqual(row['maxAlphaOverEpsilon'], 0.0094334, delta=1e-7)
+        self.assertAlmostEqual(comet_thermal_budget(absorptivity=0.15)['equilibrium_K'], 3294.8806, delta=0.001)
+        # Two equally emitting faces and inverse-square flux give distinct scalings.
+        self.assertAlmostEqual(comet_thermal_budget(radiating_area_ratio=2)['equilibrium_K'] /
+                               row['equilibrium_K'], 2**(-0.25))
+        self.assertAlmostEqual(comet_thermal_budget(q_AU=2 * COMET_Q_AU)['flux_W_m2'] /
+                               row['flux_W_m2'], 0.25)
+        secondary = comet_secondary_budget()
+        self.assertAlmostEqual(secondary['umbraBeyondSurface_m'], 188.5013, delta=0.001)
+        # At the umbra apex, Sun and nucleus have exactly equal angular radii.
+        z = 1000 + secondary['umbraBeyondSurface_m']
+        self.assertAlmostEqual(math.asin(1000 / z), math.asin(R_SUN / (COMET_Q_AU * AU + z)))
+
+    def test_gas_dust_and_rendezvous_keep_frames_and_scales_explicit(self):
+        row = comet_secondary_budget()
+        self.assertAlmostEqual(row['oneMicrogramImpact_J'], 162.45)
+        self.assertAlmostEqual(row['specificImpactEnergy_J_kg'], 1.6245e11)
+        self.assertLess(row['recoilDeltaVUpperScale_m_s'], 150)
+        self.assertGreater(row['recoilDeltaVUpperScale_m_s'], 140)
+        self.assertGreater(row['tidalAcceleration_m_s2'], row['surfaceGravity_m_s2'])
+        far = comet_secondary_budget(standoff_m=20000)
+        self.assertAlmostEqual(far['gasImpulseScale_m_s'] / row['gasImpulseScale_m_s'], 0.25)
+        r = comet_rendezvous_scales()
+        self.assertAlmostEqual(r['speed_km_s'], 41.95737, delta=1e-5)
+        self.assertLess(r['radialSpeed_km_s'], -41)
+        self.assertLess(r['latitude_deg'], -35)
+        self.assertGreater(r['localCircularMismatchLowerBound_km_s'], 49)
+        self.assertTrue(all(x < 0.013 for x in r['nodeRadii_AU']))
+
+    def test_invalid_inputs(self):
+        for function, kwargs in (
+                (comet_orbit, {'q_AU': 0}), (comet_orbit, {'eccentricity': 1}),
+                (comet_orbit, {'eccentricity': -0.1}),
+                (comet_orbit, {'eccentricity': math.nan}),
+                (comet_oberth_burn, {'delta_v_km_s': -1}),
+                (comet_oberth_burn, {'target_vinf_km_s': math.inf}),
+                (comet_oberth_burn, {'specific_energy_km2_s2': -1e9}),
+                (comet_passage, {'radius_Rsun': 1}),
+                (comet_passage, {'radius_Rsun': 1e6}),
+                (comet_thermal_budget, {'q_AU': R_SUN / AU}),
+                (comet_thermal_budget, {'absorptivity': 1.1}),
+                (comet_thermal_budget, {'emissivity': 0}),
+                (comet_secondary_budget, {'standoff_m': 1000}),
+                (comet_secondary_budget, {'density_kg_m3': math.nan}),
+                (comet_rendezvous_scales, {'radius_AU': 200})):
+            with self.subTest(function=function.__name__, kwargs=kwargs):
+                with self.assertRaises(ValueError):
+                    function(**kwargs)
+
+
+print('\n== C/1843 D1 hitchhike (issue #69; ideal two-body / illustrative environment) ==')
+print('  orbit:', comet_orbit())
+print('  prograde 24 km/s burn and target 300 km/s:', comet_oberth_burn())
+print('  Concept C, 3.5 Rsun, incoming vinf=45 km/s:',
+      comet_oberth_burn(3.5 * R_SUN / AU, 45**2 / 2))
+print('  normal black shield:', comet_thermal_budget())
+for radius in (2, 2 * COMET_Q_AU * AU / R_SUN, 3.5):
+    print(f'  unpowered passage inside {radius:.6f} Rsun:', comet_passage(radius))
+print('  assumed 1 km, 500 kg/m^3 nucleus; gas/dust scales:', comet_secondary_budget())
+print('  incoming rendezvous geometry:', comet_rendezvous_scales())
+print('  VERDICT: riding a bound sungrazer does not escape; 74.5 km/s perihelion burn '
+      'and 44.6 MW/m^2 heating make this a poor Concept C substitute.')
+
 if __name__ == '__main__':
     result = unittest.TextTestRunner(verbosity=2).run(
-        unittest.defaultTestLoader.loadTestsFromTestCase(EMRailTests))
+        unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromTestCase(case)
+                           for case in (EMRailTests, CometHitchhikeTests)))
     sys.exit(0 if result.wasSuccessful() else 1)
