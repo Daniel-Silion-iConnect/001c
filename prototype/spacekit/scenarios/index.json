@@ -1,12 +1,52 @@
 [
   {
+    "id": "concept-i-flyby",
+    "file": "scenario-i-flyby.json",
+    "name": "Concept I: Laser sail (Starshot-class) — 0.2c flyby",
+    "summary": "Beyond-target · gram-scale, not a 1 kg probe. Laser-launched 0.2c flyby of Proxima in ~21.2 yr; no destination braking.",
+    "feasibility": "Proposed Starshot-class architecture; a roughly 100 GW phased array accelerates a gram chip on a meter-scale sail. This is not demonstrated hardware.",
+    "showstopper": "Kilometre-scale beam control, sail heat and stability, dust survival and the return data link; no chip-sized brake at 0.2c.",
+    "arrival": {
+      "destination": "Proxima Centauri",
+      "years": 21.2,
+      "mode": "flyby",
+      "note": "4.24 ly ÷ 0.2c = 21.2 yr in the Earth/target frame, excluding launch acceleration and stellar motion. No braking."
+    },
+    "category": "exotic",
+    "cruiseSpeed_km_s": 59958.4916,
+    "beyondTarget": true,
+    "massClass": "Not a 1 kg probe",
+    "pickerName": "Concept I · 0.2c Proxima flyby"
+  },
+  {
+    "id": "concept-i-capture",
+    "file": "scenario-i-capture.json",
+    "name": "Concept I: Laser sail (Starshot-class) — 0.046c capture",
+    "summary": "Beyond-target · ultralight sailcraft, not a 1 kg probe. 0.046c cruise with conditional photogravitational capture at Alpha Cen A on the ~95 yr A/B arrival scale (Heller & Hippke 2017).",
+    "feasibility": "Literature benchmark with extremely favorable sail loading (~0.00086 g/m²); the 95 yr A/B arrival is not a solved A-only parking orbit.",
+    "showstopper": "A highly reflective, enormous ultralight sail must survive close stellar encounters. Launch, A-only full-stop geometry and orbit settling are not modeled.",
+    "arrival": {
+      "destination": "Alpha Cen A",
+      "years": 95,
+      "mode": "conditional photogravitational capture",
+      "note": "Heller & Hippke (2017): ~95 yr A/B arrival scale. A-only capture and orbit settling require their own solution; this is not a simulated parking orbit. Proxima via A/B takes ~141 yr, not 95 yr."
+    },
+    "category": "exotic",
+    "cruiseSpeed_km_s": 13790.453067999999,
+    "beyondTarget": true,
+    "massClass": "Not a 1 kg probe",
+    "pickerName": "Concept I · 0.046c A capture"
+  },
+  {
     "id": "concept-f",
     "name": "Concept F: Chirped pellet slipstream",
     "file": "scenario-f.json",
     "summary": "Chirped pellet reflection: 3.75 kg of pellets supplies 300 km/s delta-v to a 2 kg probe; a conservative 5 AU speed budget gives solar v∞ 317.7 km/s with ~131 GJ ideal launch energy.",
     "category": "exotic",
     "feasibility": "TRL 2; ideal momentum transfer checks out, assuming fixed 100 km/s relative speed and 80% reflection efficiency.",
-    "showstopper": "Pellet-stream aiming and ionisation over AU scales; one un-ionised pellet destroys the probe."
+    "showstopper": "Pellet-stream aiming and ionisation over AU scales; one un-ionised pellet destroys the probe.",
+    "cruiseSpeed_km_s": 317.6646211042606,
+    "default": true
   },
   {
     "id": "concept-e",
@@ -15,7 +55,8 @@
     "summary": "Po-210 decay-powered xenon drive: 316.792 km/s rocket delta-v from 6.4 kg wet; radial equivalent impulse at 1 AU gives ideal solar v∞ 315.388 km/s.",
     "category": "exotic",
     "feasibility": "TRL 2–3; ideal decay energy and rocket equation check out, assuming 30% direct-charge conversion and 70% thruster efficiency.",
-    "showstopper": "0.4 kg Po-210 is about four times world output and decays about 0.5% per day; 30% direct-charge conversion is assumed versus only a few percent demonstrated."
+    "showstopper": "0.4 kg Po-210 is about four times world output and decays about 0.5% per day; 30% direct-charge conversion is assumed versus only a few percent demonstrated.",
+    "cruiseSpeed_km_s": 315.38844135681194
   },
   {
     "id": "concept-d",
@@ -24,7 +65,8 @@
     "summary": "280 km/s photon-recycling boost at 1 AU; ideal final v∞ 306.9 km/s using a 2 kg probe, ~392 MW for 714 s at ~40 g.",
     "category": "exotic",
     "feasibility": "TRL 2; ideal photon momentum checks out, but the moving laser cavity is unproven.",
-    "showstopper": "Keep 300 effective reflections on a 22 m, 2.7 g/m² mirror receding at 280 km/s, with nanoradian pointing and wavelength/10 surface accuracy."
+    "showstopper": "Keep 300 effective reflections on a 22 m, 2.7 g/m² mirror receding at 280 km/s, with nanoradian pointing and wavelength/10 surface accuracy.",
+    "cruiseSpeed_km_s": 306.90764011057314
   },
   {
     "id": "concept-g",
@@ -33,7 +75,8 @@
     "summary": "Conditional carbon-based mirror: β = 0.7104 at 3 solar radii gives solar v∞ 300 km/s; ~646 m² sail, 1 kg probe, ~2.21 g peak radiation acceleration.",
     "category": "exotic",
     "feasibility": "TRL 2 conceptual study; energy and mass budgets close only with assumed 90% solar reflection and 0.5 g/m² distributed sail/support mass.",
-    "showstopper": "No demonstrated sail combines these optics, thermal survival at 6.99 MW/m², deployment and control within ~1.323 kg total including a shielded probe. Bare graphene is mostly transparent."
+    "showstopper": "No demonstrated sail combines these optics, thermal survival at 6.99 MW/m², deployment and control within ~1.323 kg total including a shielded probe. Bare graphene is mostly transparent.",
+    "cruiseSpeed_km_s": 300.00000000000216
   },
   {
     "id": "concept-h",
@@ -42,36 +85,42 @@
     "summary": "1,000 × 1 g chips with ~0.646 m² sails retain Concept G’s 300 km/s solar v∞; one representative flyby trajectory, ~4,237 yr to Proxima.",
     "category": "exotic",
     "feasibility": "TRL 2 conditional study; the same beta and total areal density preserve speed while dividing the probe and sail mass among independent chips.",
-    "showstopper": "Unproven near-Sun mirror and millennia-long chip survival; no demonstrated chip braking, gathering or self-assembling ISRU factory. Splitting alone gives no speed gain."
+    "showstopper": "Unproven near-Sun mirror and millennia-long chip survival; no demonstrated chip braking, gathering or self-assembling ISRU factory. Splitting alone gives no speed gain.",
+    "cruiseSpeed_km_s": 300.00000000000216
   },
   {
     "id": "concept-c-baseline",
     "name": "Concept C (baseline): Tether network + STP Oberth",
     "file": "scenario-c.json",
-    "summary": "45 km/s inbound plunge, 24 km/s solar-thermal burn at 3.5 R_sun (v∞ 136.36 km/s) plus 15 speculative CNT tethers × 4 km/s; doc reference 196.36 km/s (6.55e-4 c)."
+    "summary": "45 km/s inbound plunge, 24 km/s solar-thermal burn at 3.5 R_sun (v∞ 136.36 km/s) plus 15 speculative CNT tethers × 4 km/s; doc reference 196.36 km/s (6.55e-4 c).",
+    "cruiseSpeed_km_s": 196.4831787291793
   },
   {
     "id": "concept-a-baseline",
     "name": "Concept A (baseline): Chemical + Solar Oberth + tether chain",
     "file": "scenario-a.json",
-    "summary": "12 km/s chemical burn at 6 R_sun (v∞ 76.42 km/s) plus 12 speculative Zylon tethers × 3 km/s; doc reference 112.42 km/s (3.75e-4 c)."
+    "summary": "12 km/s chemical burn at 6 R_sun (v∞ 76.42 km/s) plus 12 speculative Zylon tethers × 3 km/s; doc reference 112.42 km/s (3.75e-4 c).",
+    "cruiseSpeed_km_s": 112.64750903277489
   },
   {
     "id": "concept-b-baseline",
     "name": "Concept B (baseline): Sundiver hybrid (chemical Oberth + solar sail)",
     "file": "scenario-b.json",
-    "summary": "6 km/s kick at 10 R_sun followed by a β = 0.25 radial sail; engine hybrid v∞ 107.56 km/s (3.59e-4 c)."
+    "summary": "6 km/s kick at 10 R_sun followed by a β = 0.25 radial sail; engine hybrid v∞ 107.56 km/s (3.59e-4 c).",
+    "cruiseSpeed_km_s": 107.56224837077278
   },
   {
     "id": "voyager-1",
     "name": "Voyager 1 (baseline): Jupiter → Saturn",
     "file": "voyager-1.json",
-    "summary": "Historical flyby sequence; illustrative unpowered patched-conic baseline calibrated to v∞ 16.9 km/s. See docs/analyses/voyager-baselines.md."
+    "summary": "Historical flyby sequence; illustrative unpowered patched-conic baseline calibrated to v∞ 16.9 km/s. See docs/analyses/voyager-baselines.md.",
+    "cruiseSpeed_km_s": 16.90000003397825
   },
   {
     "id": "voyager-2",
     "name": "Voyager 2 (baseline): Jupiter → Saturn → Uranus → Neptune",
     "file": "voyager-2.json",
-    "summary": "Historical flyby sequence; illustrative unpowered patched-conic baseline calibrated to v∞ 15.2 km/s. See docs/analyses/voyager-baselines.md."
+    "summary": "Historical flyby sequence; illustrative unpowered patched-conic baseline calibrated to v∞ 15.2 km/s. See docs/analyses/voyager-baselines.md.",
+    "cruiseSpeed_km_s": 15.199999964154186
   }
 ]

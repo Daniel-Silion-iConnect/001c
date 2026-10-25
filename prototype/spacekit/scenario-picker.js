@@ -1,19 +1,31 @@
 // The index is ordered by engine-computed final v∞ descending (checked in tests).
-// Its first entry supplies the default for both the picker and the viewer.
+// An explicit default keeps the kilogram-class Concept F selected even when
+// gram-scale comparisons are faster. Unmarked/custom indexes use their first entry.
+import { cruiseYears, formatTravelYears, LIGHT_YEAR_KM } from './viewer-data.js';
 export const SCENARIO_INDEX = 'scenarios/index.json';
 
 /** Picker options ({ id, value, label, title }) in index order. */
 export function pickerOptions(index) {
   if (!Array.isArray(index)) throw new Error(`${SCENARIO_INDEX} must be an array.`);
-  return index.map(entry => ({
-    id: entry.id, value: `scenarios/${entry.file}`,
-    label: entry.category === 'exotic' ? `Exotic · speculative — ${entry.name}` : entry.name,
-    title: entry.category === 'exotic'
-      ? `${entry.summary ?? ''} Feasibility: ${entry.feasibility} Showstopper: ${entry.showstopper}`
-      : entry.summary ?? '',
-    summary: entry.summary,
-    category: entry.category, feasibility: entry.feasibility, showstopper: entry.showstopper
-  }));
+  return index.map(entry => {
+    const years = entry.arrival?.years ?? cruiseYears(4.24 * LIGHT_YEAR_KM, entry.cruiseSpeed_km_s);
+    const classification = entry.category === 'exotic' ? ' · Exotic · speculative' : '';
+    const scope = entry.beyondTarget ? ` · Beyond-target · ${entry.massClass}` : '';
+    const trip = entry.arrival
+      ? `${entry.arrival.destination}: ~${formatTravelYears(years)} · ${entry.arrival.mode}.`
+      : `Proxima: ~${formatTravelYears(years)} (distance ÷ final v∞; no braking).`;
+    return {
+      id: entry.id, value: `scenarios/${entry.file}`,
+      label: `~${formatTravelYears(years)} · ${entry.pickerName ?? entry.name}${classification}${scope}`,
+      title: `${entry.name}. ${trip} ${entry.arrival?.note ?? ''} ${entry.category === 'exotic'
+        ? `${entry.summary ?? ''} Feasibility: ${entry.feasibility} Showstopper: ${entry.showstopper}`
+        : entry.summary ?? ''}`,
+      default: entry.default, arrival: entry.arrival, trip,
+      beyondTarget: entry.beyondTarget, massClass: entry.massClass,
+      summary: entry.summary,
+      category: entry.category, feasibility: entry.feasibility, showstopper: entry.showstopper
+    };
+  });
 }
 
 // Match resolved URLs so explicit ./paths and absolute reference URLs work too.
@@ -23,7 +35,8 @@ export function scenarioIdForPath(options, path, baseURL) {
 }
 
 export function selectScenario(options, search) {
-  const current = new URLSearchParams(search).get('scenario') || options[0]?.value;
+  const current = new URLSearchParams(search).get('scenario')
+    || options.find(option => option.default)?.value || options[0]?.value;
   if (!current) throw new Error('No reference scenarios available. Enter a Scenario JSON path.');
   return current;
 }
@@ -50,9 +63,10 @@ export async function mountPicker() {
   const metadata = document.getElementById('picker-feasibility');
   const renderMetadata = () => {
     const selected = options.find(option => option.value === select.value);
+    document.getElementById('picker-trip').textContent = selected?.trip ?? '';
     metadata.hidden = selected?.category !== 'exotic';
     metadata.textContent = metadata.hidden ? ''
-      : `Exotic · speculative. Feasibility: ${selected.feasibility} Showstopper: ${selected.showstopper}`;
+      : `Exotic · speculative.${selected.beyondTarget ? ` Beyond-target · ${selected.massClass}.` : ''} Feasibility: ${selected.feasibility} Showstopper: ${selected.showstopper}`;
   };
   renderMetadata();
   select.addEventListener('change', () => {
@@ -61,5 +75,6 @@ export async function mountPicker() {
     input.form.requestSubmit();
   });
   const id = scenarioIdForPath(options, current, location.href);
-  return { path: current, id, summary: options.find(option => option.id === id)?.summary };
+  const selected = options.find(option => option.id === id);
+  return { path: current, id, summary: selected?.summary, arrival: selected?.arrival };
 }

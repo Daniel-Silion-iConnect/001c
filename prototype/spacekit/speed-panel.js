@@ -1,4 +1,4 @@
-import { buildSpeedSeries, targetProgress, SPEED_TARGET_KM_S } from './viewer-data.js';
+import { buildSpeedSeries, targetProgress, targetProgressText, speedText, SPEED_TARGET_KM_S } from './viewer-data.js';
 import { createDisclosureCard } from './disclosure-card.js';
 
 // A shadow root keeps this sidebar panel independent of the viewer's layout/theme.
@@ -45,8 +45,8 @@ export function createSpeedPanel(model, onSelect) {
     <progress max="100" value="0" aria-label="Progress toward 300 km/s target" aria-describedby="gap"></progress>
   `;
   const series = buildSpeedSeries(model);
-  const width = Math.max(280, 58 + (series.length - 1) * 44);
-  const height = 166, left = 45, right = width - 14, top = 20, bottom = 138;
+  const width = Math.max(300, 82 + (series.length - 1) * 44);
+  const height = 166, left = 69, right = width - 14, top = 20, bottom = 138;
   const maxSpeed = Math.max(1, ...series.map(step => step.vInf_km_s ?? 0));
   const x = index => left + index * (right - left) / Math.max(1, series.length - 1);
   const y = speed => bottom - (speed ?? 0) / maxSpeed * (bottom - top);
@@ -59,11 +59,11 @@ export function createSpeedPanel(model, onSelect) {
   const svg = svgNode('svg', { viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': 'Escape speed after each step; values and labels follow below.' });
   svg.style.minWidth = `${width}px`;
   svg.append(svgNode('path', { d: `M${left},${top}V${bottom}H${right}`, class: 'axis', fill: 'none' }));
-  for (const value of [0, maxSpeed]) svg.append(svgNode('text', { x: left - 6, y: y(value) + 4, 'text-anchor': 'end' }, value.toFixed(1)));
+  for (const value of [0, maxSpeed]) svg.append(svgNode('text', { x: left - 6, y: y(value) + 4, 'text-anchor': 'end' }, value.toLocaleString('en-US', { maximumFractionDigits: 1 })));
   const points = [], buttons = [];
   series.forEach((step, index) => {
     const skipped = step.status === 'skipped';
-    const speed = step.vInf_km_s === null ? 'Bound orbit' : `${step.vInf_km_s.toFixed(3)} km/s`;
+    const speed = step.vInf_km_s === null ? 'Bound orbit' : `${speedText(step.vInf_km_s).speed} · ${speedText(step.vInf_km_s).percent}`;
     const label = `${index} · ${step.label}: ${speed}${skipped ? ' (skipped)' : ''}`;
     const previous = series[index - 1];
     // Bound values are absent, not zero: don't draw a numerical line through them.
@@ -89,7 +89,7 @@ export function createSpeedPanel(model, onSelect) {
     select(index) {
       const step = series[index];
       const progress = targetProgress(step.vInf_km_s);
-      progressElement.querySelector('#gap').textContent = `Step ${index} · ${progress.gap_km_s.toFixed(3)} km/s remaining · ${progress.percentReached.toFixed(2)}% reached${progress.bound ? ' · Bound orbit (no escape asymptote)' : ''}`;
+      progressElement.querySelector('#gap').textContent = `Step ${index} · ${targetProgressText(step.vInf_km_s)}`;
       progressElement.querySelector('progress').value = progress.progressPercent;
       points.forEach((point, i) => point.classList.toggle('selected', i === index));
       buttons.forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)));

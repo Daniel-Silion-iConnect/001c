@@ -8,7 +8,7 @@ import { createNarrativePanel, loadNarratives } from './narrative-panel.js';
 const element = (id) => document.getElementById(id);
 
 async function start() {
-  const { path: scenario, id: scenarioId, summary: shortDescription } = await mountPicker();
+  const { path: scenario, id: scenarioId, summary: shortDescription, arrival } = await mountPicker();
   const response = await fetch(scenario);
   if (!response.ok) throw new Error(`Cannot load ${scenario}: HTTP ${response.status}.`);
   let doc;
@@ -71,7 +71,7 @@ async function start() {
   };
   element('show-conics').addEventListener('change', event => view?.setShowConics(event.target.checked));
   const speedPanel = createSpeedPanel(model, select);
-  const travelPanel = createTravelTimePanel(model.result.vInf_km_s);
+  const travelPanel = createTravelTimePanel(model.result.vInf_km_s, arrival);
   element('target-progress').append(speedPanel.progressElement);
   element('travel-panel').append(travelPanel);
   element('analysis-panels').append(speedPanel.element, travelPanel.querySelector('#travel-card'));

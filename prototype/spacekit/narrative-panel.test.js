@@ -60,9 +60,9 @@ for (const width of [460, 1400]) {
       assert.equal(scenario.textContent, narratives.scenarios[reference.id]);
       assert.equal(content.querySelector('.narrative-intro').textContent, narratives.intro);
       assert.equal(panel.element.querySelector('.narrative-short').textContent, reference.summary);
-      assert.match(panel.element.querySelector('.narrative-event').textContent, /skipped by the engine/);
+      assert.match(panel.element.querySelector('.narrative-event').textContent, doc.events.length ? /skipped by the engine/ : /does not simulate/);
       panel.select(0);
-      assert.match(panel.element.querySelector('.narrative-event').textContent, /before any modeled events/);
+      assert.match(panel.element.querySelector('.narrative-event').textContent, doc.events.length ? /before any modeled events/ : /departure coast/);
       assert.equal(scenario.textContent, narratives.scenarios[reference.id]);
     }
   });
@@ -77,8 +77,8 @@ for (const reference of index) {
       const initial = narrativeText(narratives, id, doc, 0);
       assert.equal(initial.intro, narratives.intro);
       assert.equal(initial.scenario, narratives.scenarios[id]);
-      assert.equal(initial.eventTitle, 'Leg 0 · Initial orbit');
-      assert.match(initial.event, /before any modeled events/);
+      assert.equal(initial.eventTitle, doc.events.length ? 'Leg 0 · Initial orbit' : 'Leg 0 · Departure coast');
+      assert.match(initial.event, doc.events.length ? /before any modeled events/ : /does not simulate launch acceleration.*destination braking/);
       doc.events.forEach((event, i) => {
         const copy = narrativeText(narratives, id, doc, i + 1);
         assert.ok(copy.event.startsWith(narratives.eventTypes[event.type]));
@@ -88,6 +88,18 @@ for (const reference of index) {
     }
   });
 }
+
+test('Concept I narratives distinguish Starshot flyby from the ultralight capture architecture', () => {
+  for (const id of ['concept-i-flyby', 'concept-i-capture']) {
+    const story = narratives.scenarios[id];
+    for (const required of [/100 GW/, /gram chip/, /sail/, /not a 1 kg probe/, /brak/, /30 AU/]) assert.match(story, required);
+  }
+  assert.match(narratives.scenarios['concept-i-flyby'], /21.2 years/);
+  assert.match(narratives.scenarios['concept-i-flyby'], /no gram-scale onboard system.*stop/i);
+  assert.match(narratives.scenarios['concept-i-capture'], /Heller & Hippke \(2017\)/);
+  assert.match(narratives.scenarios['concept-i-capture'], /95-year A\/B arrival scale/);
+  assert.match(narratives.scenarios['concept-i-capture'], /100,000 m².*10 g payload/);
+});
 
 test('custom paths do not borrow a reference narrative, including on other origins', () => {
   for (const path of ['custom.json', 'schema-example.json', 'https://other.test/viewer/scenarios/scenario-a.json']) {
