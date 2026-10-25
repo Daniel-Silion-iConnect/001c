@@ -36,6 +36,15 @@
     "showstopper": "No demonstrated sail combines these optics, thermal survival at 6.99 MW/m², deployment and control within ~1.323 kg total including a shielded probe. Bare graphene is mostly transparent."
   },
   {
+    "id": "concept-h",
+    "name": "Concept H: Distributed sundiver chip swarm",
+    "file": "scenario-h.json",
+    "summary": "1,000 × 1 g chips with ~0.646 m² sails retain Concept G’s 300 km/s solar v∞; one representative flyby trajectory, ~4,237 yr to Proxima.",
+    "category": "exotic",
+    "feasibility": "TRL 2 conditional study; the same beta and total areal density preserve speed while dividing the probe and sail mass among independent chips.",
+    "showstopper": "Unproven near-Sun mirror and millennia-long chip survival; no demonstrated chip braking, gathering or self-assembling ISRU factory. Splitting alone gives no speed gain."
+  },
+  {
     "id": "concept-c-baseline",
     "name": "Concept C (baseline): Tether network + STP Oberth",
     "file": "scenario-c.json",

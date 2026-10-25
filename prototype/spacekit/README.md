@@ -175,6 +175,13 @@ schema inputs; `viewer.js` handles loading, HUD, and renderer selection.
 
 ## Reference scenarios
 
+Concept H divides G's probe allocation into 1,000 independent 1 g chips, each
+with ~0.646 m² sail (~0.323 g). Equal total areal density preserves β and
+300 km/s solar v∞. The view is one representative conditional flyby, with no
+modeled capture, gathering or factory. See the
+[nano-swarm analysis](../../docs/analyses/nano-swarm.md) for laser launch,
+attrition, braking, assembly and optical-link budgets and the architecture verdict.
+
 Concept G adds an exotic, conditional carbon `solarSail` at 3 solar radii:
 β = 0.710365490 on a delivered 5.204 AU aphelion ellipse predicts 300 km/s
 solar v∞ with zero impulsive Δv. Its ~646 m² sail and 1 kg shielded probe assume
