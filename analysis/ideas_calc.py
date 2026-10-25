@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""First-order checks for docs/analyses/exotic-ideas.md (issue #35).
+"""First-order checks for docs/analyses/{exotic-ideas,em-rail-limits}.md.
 Run: python3 analysis/ideas_calc.py   (stdlib only, deterministic)."""
 import math
+import sys
+import unittest
 c = 2.998e8; G0 = 9.80665
 MU_SUN = 1.32712e20; AU = 1.496e11; R_SUN = 6.957e8
 MU_MOON = 4.9049e12; R_MOON = 1.7374e6
@@ -488,3 +490,329 @@ print(f"  perigee dive: v_p={vp:.2f} v_inf_E={vinf_dive:.2f}; fair direct baseli
 print("\n== Hardened 1 kg probe: minimum rotor radius for g-limit ==")
 for glim in (1e4, 2e4, 1e5):
     print("  " + "  ".join(f"{glim:,.0f} g @ {v/1e3:.1f} km/s: R>={v**2/(glim*G0):.0f} m" for v in (2.5e3, 4e3, 7e3)))
+
+
+def _em_positive(**values):
+    for name, value in values.items():
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError(f"{name} must be finite and positive")
+
+
+def em_launch_budget(final_speed_km_s, acceleration_g, mass_kg=1,
+                     efficiency=0.5, initial_speed_km_s=0):
+    """Constant tangential acceleration; speeds relative to the launcher.
+
+    No drag, gravity work, carriage mass or field-energy inventory. Efficiency
+    is an ASSUMED constant electrical-to-payload-KE fraction, not measured.
+    Peak power is at exit; recharge power is NOT the shot's average power.
+    See em-rail-limits.md for derivations, source evidence and limitations.
+    """
+    _em_positive(final_speed_km_s=final_speed_km_s, acceleration_g=acceleration_g,
+                 mass_kg=mass_kg, efficiency=efficiency)
+    if (efficiency > 1 or not math.isfinite(initial_speed_km_s)
+            or initial_speed_km_s < 0 or initial_speed_km_s >= final_speed_km_s):
+        raise ValueError("require 0 < efficiency <= 1 and 0 <= initial < final speed")
+    vi = initial_speed_km_s * 1000
+    vf = final_speed_km_s * 1000
+    a = acceleration_g * G0
+    duration = (vf - vi) / a
+    energy = 0.5 * mass_kg * (vf - vi) * (vf + vi)
+    return {
+        'finalSpeed_km_s': final_speed_km_s, 'acceleration_g': acceleration_g,
+        'mass_kg': mass_kg, 'efficiency': efficiency,
+        'length_km': (vf - vi) * (vf + vi) / (2 * a) / 1000,
+        'duration_s': duration, 'force_N': mass_kg * a,
+        'kineticEnergyGain_J': energy, 'inputEnergy_J': energy / efficiency,
+        'lossEnergy_J': energy * (1 / efficiency - 1),
+        'averageMechanicalPower_W': energy / duration,
+        'peakMechanicalPower_W': mass_kg * a * vf,
+        'averageElectricalPower_W': energy / duration / efficiency,
+        'peakElectricalPower_W': mass_kg * a * vf / efficiency,
+    }
+
+
+def em_field_budget(field_T=20, coupling_area_m2=0.001, mass_kg=1,
+                    support_radius_m=0.1, support_thickness_m=0.01):
+    """Vacuum Maxwell pressure/energy density and ideal pressure-area force.
+
+    p*A is a favourable force SCALE, not a coilgun coupling prediction.
+    Hoop stress p*r/t is a thin cylindrical support analogy, not a winding
+    stress solution. The field says nothing about critical current by itself.
+    """
+    _em_positive(field_T=field_T, coupling_area_m2=coupling_area_m2,
+                 mass_kg=mass_kg, support_radius_m=support_radius_m,
+                 support_thickness_m=support_thickness_m)
+    if support_thickness_m > support_radius_m / 10:
+        raise ValueError("thin-support estimate requires thickness/radius <= 0.1")
+    pressure = field_T**2 / (2 * MU0)
+    return {
+        'pressure_Pa': pressure, 'energyDensity_J_m3': pressure,
+        'idealForceScale_N': pressure * coupling_area_m2,
+        'idealAccelerationScale_g': pressure * coupling_area_m2 / mass_kg / G0,
+        'thinSupportHoopStress_Pa': pressure * support_radius_m / support_thickness_m,
+    }
+
+
+def em_payload_budget(acceleration_g, mass_kg=1, coupling_area_m2=0.001,
+                      density_kg_m3=3000, supported_length_m=0.1):
+    """End-supported uniform slab stress rho*a*l and optimistic field scale.
+
+    Not a qualification of electronics, optics, joints, or a complete probe.
+    Effective magnetic coupling area need not equal the payload frontal area.
+    """
+    _em_positive(acceleration_g=acceleration_g, mass_kg=mass_kg,
+                 coupling_area_m2=coupling_area_m2, density_kg_m3=density_kg_m3,
+                 supported_length_m=supported_length_m)
+    a = acceleration_g * G0
+    pressure = mass_kg * a / coupling_area_m2
+    return {'force_N': mass_kg * a,
+            'endSupportStress_Pa': density_kg_m3 * a * supported_length_m,
+            'idealCouplingPressure_Pa': pressure,
+            'idealCouplingField_T': math.sqrt(2 * MU0 * pressure)}
+
+
+def em_switching_budget(speed_km_s, pitch_m=0.1, inductance_H=10e-6,
+                       current_A=10000, resistance_ohm=0.001,
+                       rise_fraction=0.25, flux_gradient_Wb_m=1):
+    """One illustrative driven coil phase: V=RI+L*dI/dt+v*d(lambda)/dx.
+
+    Constant L and prescribed external/mutual flux gradient. The three terms
+    are assumed to add during current rise; real signs/waveforms vary by stage.
+    Values are not a self-consistent launcher design or switch specification.
+    """
+    _em_positive(speed_km_s=speed_km_s, pitch_m=pitch_m,
+                 inductance_H=inductance_H, current_A=current_A,
+                 resistance_ohm=resistance_ohm, rise_fraction=rise_fraction,
+                 flux_gradient_Wb_m=flux_gradient_Wb_m)
+    if rise_fraction > 1:
+        raise ValueError("rise_fraction must be <= 1")
+    speed = speed_km_s * 1000
+    transit = pitch_m / speed
+    inductive = inductance_H * current_A / (rise_fraction * transit)
+    motional = speed * flux_gradient_Wb_m
+    resistive = resistance_ohm * current_A
+    return {'stageTransit_s': transit, 'stageRate_Hz': 1 / transit,
+            'riseTime_s': rise_fraction * transit,
+            'inductiveVoltage_V': inductive, 'motionalVoltage_V': motional,
+            'resistiveVoltage_V': resistive,
+            'riseVoltageSum_V': inductive + motional + resistive,
+            'coilStoredEnergy_J': 0.5 * inductance_H * current_A**2,
+            'coilOhmicPower_W': current_A**2 * resistance_ohm}
+
+
+def em_lunar_ring_budget(speed_km_s, acceleration_g, mass_kg=1):
+    """Ideal Moon-radius guideway; constant tangential acceleration from rest.
+
+    Curvature acceleration is v^2/R. Track's signed inward support subtracts
+    lunar gravity, and combines orthogonally with tangential drive for proper
+    payload load. Ring laps use tangential acceleration only: they do NOT
+    certify compliance with a total g limit. Ignores rotation and topography.
+    """
+    _em_positive(speed_km_s=speed_km_s, acceleration_g=acceleration_g, mass_kg=mass_kg)
+    speed = speed_km_s * 1000
+    circumference = 2 * math.pi * R_MOON
+    radial = speed**2 / R_MOON
+    gravity = MU_MOON / R_MOON**2
+    guide = radial - gravity
+    return {
+        'circumference_km': circumference / 1000,
+        'accelerationLaps': speed**2 / (2 * acceleration_g * G0) / circumference,
+        'curvatureAcceleration_g': radial / G0,
+        'signedInwardGuideForce_N': mass_kg * guide,
+        'totalSupportedLoad_g': math.hypot(acceleration_g, guide / G0),
+        # Coasting limit with ALL support-load budget devoted to curvature.
+        'coastingSpeedAtLoadLimit_km_s': math.sqrt(
+            (acceleration_g * G0 + gravity) * R_MOON) / 1000,
+    }
+
+
+def em_atmosphere_budget(speed_km_s, frontal_area_m2=0.0001,
+                        air_density_kg_m3=1.225, surface_pressure_Pa=101325):
+    """Incident gas momentum/energy scales; NOT heat flux to the probe.
+
+    Column mass p*A/g assumes a vertical hydrostatic Earth column. Constant
+    speed incident energy is a counterfactual if appreciable deceleration
+    occurs. Shocks, radiation, ablation, chemistry and heat partition absent.
+    Standard sea-level inputs: NASA SP-367; see em-rail-limits.md.
+    """
+    _em_positive(speed_km_s=speed_km_s, frontal_area_m2=frontal_area_m2,
+                 air_density_kg_m3=air_density_kg_m3,
+                 surface_pressure_Pa=surface_pressure_Pa)
+    speed = speed_km_s * 1000
+    column = surface_pressure_Pa * frontal_area_m2 / G0
+    return {'dynamicPressure_Pa': 0.5 * air_density_kg_m3 * speed**2,
+            'incidentKineticPower_W': 0.5 * air_density_kg_m3 * frontal_area_m2 * speed**3,
+            'verticalColumnMass_kg': column,
+            'constantSpeedColumnEnergy_J': 0.5 * column * speed**2}
+
+
+class EMRailTests(unittest.TestCase):
+    """Independent rounded benchmarks and conservation/geometry checks (#66)."""
+
+    def test_nine_launch_cases(self):
+        # Hand-checked distances in km, times in seconds, mechanical mean in GW.
+        expected = (
+            (10, 1e3, 5.098581, 1.019716, 0.04903325),
+            (10, 1e4, 0.5098581, 0.1019716, 0.4903325),
+            (10, 1e5, 0.05098581, 0.01019716, 4.903325),
+            (50, 1e3, 127.4645, 5.098581, 0.24516625),
+            (50, 1e4, 12.74645, 0.5098581, 2.4516625),
+            (50, 1e5, 1.274645, 0.05098581, 24.516625),
+            (300, 1e3, 4588.723, 30.59149, 1.4709975),
+            (300, 1e4, 458.8723, 3.059149, 14.709975),
+            (300, 1e5, 45.88723, 0.3059149, 147.09975),
+        )
+        for speed, g, length, duration, mean in expected:
+            with self.subTest(speed=speed, g=g):
+                row = em_launch_budget(speed, g)
+                self.assertAlmostEqual(row['length_km'] / length, 1, delta=1e-6)
+                self.assertAlmostEqual(row['duration_s'] / duration, 1, delta=1e-6)
+                self.assertAlmostEqual(row['averageMechanicalPower_W'] / 1e9, mean)
+                self.assertAlmostEqual(row['peakMechanicalPower_W'] / 1e9, 2 * mean)
+                self.assertAlmostEqual(row['averageElectricalPower_W'] / 1e9, 2 * mean)
+                self.assertAlmostEqual(row['peakElectricalPower_W'] / 1e9, 4 * mean)
+                self.assertAlmostEqual(row['force_N'] * row['length_km'] * 1000,
+                                       row['kineticEnergyGain_J'], delta=1e-4)
+                self.assertAlmostEqual(row['force_N'] * row['duration_s'],
+                                       speed * 1000, delta=1e-9)  # 1 kg momentum gain
+                expected_energy = {10: 50e6, 50: 1.25e9, 300: 45e9}[speed]
+                self.assertEqual(row['kineticEnergyGain_J'], expected_energy)
+                self.assertEqual(row['inputEnergy_J'], 2 * expected_energy)
+                self.assertEqual(row['lossEnergy_J'], expected_energy)
+
+    def test_mass_efficiency_and_nonzero_injection(self):
+        base = em_launch_budget(5, 1e3)
+        heavy = em_launch_budget(5, 1e3, mass_kg=2, efficiency=1)
+        self.assertEqual(heavy['length_km'], base['length_km'])
+        self.assertEqual(heavy['duration_s'], base['duration_s'])
+        self.assertEqual(heavy['kineticEnergyGain_J'], 2 * base['kineticEnergyGain_J'])
+        self.assertEqual(heavy['inputEnergy_J'], base['inputEnergy_J'])
+        self.assertEqual(heavy['lossEnergy_J'], 0)
+        injected = em_launch_budget(5, 1e3, initial_speed_km_s=3)
+        self.assertEqual(injected['kineticEnergyGain_J'], 8e6)
+        self.assertAlmostEqual(injected['length_km'], 0.815773, delta=1e-6)
+        # Same track and force adds v^2, not speeds: a 3 km/s injection into
+        # a rail which provides 4 km/s from rest exits at 5 km/s, not 7 km/s.
+        self.assertAlmostEqual(injected['length_km'], em_launch_budget(4, 1e3)['length_km'])
+        self.assertAlmostEqual(injected['averageMechanicalPower_W'],
+                               injected['force_N'] * 4000)
+
+    def test_pressure_payload_and_support_stress(self):
+        for field, pressure_MPa in ((10, 39.788736), (20, 159.154943),
+                                     (30, 358.098622), (45, 805.721899)):
+            row = em_field_budget(field)
+            self.assertAlmostEqual(row['pressure_Pa'] / 1e6, pressure_MPa, delta=1e-6)
+            self.assertEqual(row['energyDensity_J_m3'], row['pressure_Pa'])
+            self.assertAlmostEqual(row['thinSupportHoopStress_Pa'], 10 * row['pressure_Pa'])
+        self.assertAlmostEqual(em_field_budget()['idealAccelerationScale_g'], 16229.287, delta=0.001)
+        for g, stress_MPa, field in ((1e3, 2.941995, 4.964554),
+                                    (1e4, 29.41995, 15.699299),
+                                    (1e5, 294.1995, 49.645543)):
+            row = em_payload_budget(g)
+            self.assertAlmostEqual(row['endSupportStress_Pa'] / 1e6, stress_MPa)
+            self.assertAlmostEqual(row['idealCouplingField_T'], field, delta=0.00001)
+            self.assertAlmostEqual(em_field_budget(row['idealCouplingField_T'])[
+                'idealAccelerationScale_g'], g, delta=1e-9)
+
+    def test_switching_and_back_emf(self):
+        for speed, transit_us, inductive_kV, motional_kV in (
+                (10, 10, 40, 10), (50, 2, 200, 50), (300, 1/3, 1200, 300)):
+            row = em_switching_budget(speed)
+            self.assertAlmostEqual(row['stageTransit_s'] * 1e6, transit_us)
+            self.assertAlmostEqual(row['inductiveVoltage_V'] / 1000, inductive_kV)
+            self.assertAlmostEqual(row['motionalVoltage_V'] / 1000, motional_kV)
+            self.assertAlmostEqual(row['riseVoltageSum_V'], (inductive_kV + motional_kV) * 1000 + 10)
+            self.assertAlmostEqual(row['coilStoredEnergy_J'], 500)
+            self.assertEqual(row['coilOhmicPower_W'], 100000)
+        # Longer stages relax di/dt, but cannot remove motional EMF at fixed flux gradient.
+        wider = em_switching_budget(300, pitch_m=1)
+        self.assertAlmostEqual(wider['inductiveVoltage_V'], 120000)
+        self.assertEqual(wider['motionalVoltage_V'], 300000)
+
+    def test_ring_curvature_is_not_free(self):
+        ring = em_lunar_ring_budget(300, 1e3)
+        self.assertAlmostEqual(ring['circumference_km'], 10916.406, delta=0.001)
+        self.assertAlmostEqual(ring['curvatureAcceleration_g'], 5282.287, delta=0.001)
+        self.assertAlmostEqual(ring['accelerationLaps'], 0.420351, delta=1e-6)
+        self.assertGreater(ring['totalSupportedLoad_g'], 1e3)
+        self.assertAlmostEqual(ring['coastingSpeedAtLoadLimit_km_s'], 130.541, delta=0.001)
+        high = em_lunar_ring_budget(300, 1e4)
+        self.assertAlmostEqual(high['totalSupportedLoad_g'], 11309.324, delta=0.001)
+        # At lunar circular speed gravity supplies curvature without a guide load.
+        circular = em_lunar_ring_budget(kms(math.sqrt(MU_MOON / R_MOON)), 1e3)
+        self.assertAlmostEqual(circular['signedInwardGuideForce_N'], 0, delta=1e-9)
+        self.assertAlmostEqual(circular['totalSupportedLoad_g'], 1e3)
+
+    def test_atmospheric_scales_are_not_absorbed_heat(self):
+        for speed, pressure_MPa, incident_MW in (
+                (10, 61.25, 61.25), (50, 1531.25, 7656.25),
+                (300, 55125, 1653750)):
+            row = em_atmosphere_budget(speed)
+            self.assertAlmostEqual(row['dynamicPressure_Pa'] / 1e6, pressure_MPa)
+            self.assertAlmostEqual(row['incidentKineticPower_W'] / 1e6, incident_MW)
+            self.assertAlmostEqual(row['verticalColumnMass_kg'], 1.033227, delta=1e-6)
+            self.assertAlmostEqual(row['constantSpeedColumnEnergy_J'],
+                                   0.5 * row['verticalColumnMass_kg'] * (speed * 1000)**2)
+
+    def test_invalid_inputs(self):
+        cases = (
+            (em_launch_budget, {'final_speed_km_s': 10, 'acceleration_g': 1e3}),
+            (em_field_budget, dict(field_T=20, coupling_area_m2=0.001, mass_kg=1,
+                support_radius_m=0.1, support_thickness_m=0.01)),
+            (em_payload_budget, dict(acceleration_g=1e3, mass_kg=1, coupling_area_m2=0.001,
+                density_kg_m3=3000, supported_length_m=0.1)),
+            (em_switching_budget, dict(speed_km_s=10, pitch_m=0.1, inductance_H=10e-6,
+                current_A=10000, resistance_ohm=0.001, rise_fraction=0.25,
+                flux_gradient_Wb_m=1)),
+            (em_lunar_ring_budget, dict(speed_km_s=10, acceleration_g=1e3, mass_kg=1)),
+            (em_atmosphere_budget, dict(speed_km_s=10, frontal_area_m2=0.0001,
+                air_density_kg_m3=1.225, surface_pressure_Pa=101325)),
+        )
+        for function, kwargs in cases:
+            for key in kwargs:
+                for invalid in (0, -1, math.nan, math.inf):
+                    with self.subTest(function=function.__name__, key=key, value=invalid):
+                        with self.assertRaises(ValueError):
+                            function(**{**kwargs, key: invalid})
+        for kwargs in ({'efficiency': 0}, {'efficiency': 1.01}, {'efficiency': math.nan},
+                       {'mass_kg': -1}, {'initial_speed_km_s': -1},
+                       {'initial_speed_km_s': 10}, {'initial_speed_km_s': math.inf},
+                       {'initial_speed_km_s': math.nan}):
+            with self.assertRaises(ValueError):
+                em_launch_budget(10, 1e3, **kwargs)
+        with self.assertRaises(ValueError):
+            em_field_budget(support_thickness_m=0.02)
+        with self.assertRaises(ValueError):
+            em_switching_budget(10, rise_fraction=1.1)
+
+
+print("\n== EM rail / coilgun limits (issue #66; eta=0.5 ASSUMED) ==")
+print("  v_km_s g length_km duration_s KE_MJ input_MJ mech_avg_GW mech_peak_GW elec_avg_GW elec_peak_GW")
+for speed in (10, 50, 300):
+    for g_limit in (1e3, 1e4, 1e5):
+        row = em_launch_budget(speed, g_limit)
+        print(f"  {speed:3} {g_limit:.0e} {row['length_km']:.6f} {row['duration_s']:.8f} "
+              f"{row['kineticEnergyGain_J']/1e6:.3f} {row['inputEnergy_J']/1e6:.3f} "
+              + " ".join(f"{row[key]/1e9:.8f}" for key in (
+                  'averageMechanicalPower_W', 'peakMechanicalPower_W',
+                  'averageElectricalPower_W', 'peakElectricalPower_W')))
+for label, values in (
+        ('candidate 5 km/s, 1000 g', em_launch_budget(5, 1e3)),
+        ('candidate 2.5 km/s, 1000 g', em_launch_budget(2.5, 1e3))):
+    print(f"  {label}: {values}")
+for field in (10, 20, 30, 45):
+    print(f"  B={field} T: {em_field_budget(field)}")
+for g_limit in (1e3, 1e4, 1e5):
+    print(f"  payload at {g_limit:.0e} g: {em_payload_budget(g_limit)}")
+for speed in (10, 50, 300):
+    print(f"  switching at {speed} km/s: {em_switching_budget(speed)}")
+    print(f"  lunar ring at {speed} km/s, 1000 g tangential: {em_lunar_ring_budget(speed, 1e3)}")
+    print(f"  Earth atmosphere at {speed} km/s: {em_atmosphere_budget(speed)}")
+print("  lunar ring at 300 km/s, 10000 g tangential:", em_lunar_ring_budget(300, 1e4))
+print("  VERDICT: lunar contactless coilgun, 2.5-5 km/s first stage is a development candidate; "
+      "10 km/s is a stretch; 300 km/s is not a realistic rail baseline.")
+
+if __name__ == '__main__':
+    result = unittest.TextTestRunner(verbosity=2).run(
+        unittest.defaultTestLoader.loadTestsFromTestCase(EMRailTests))
+    sys.exit(0 if result.wasSuccessful() else 1)

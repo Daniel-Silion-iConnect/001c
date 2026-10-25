@@ -439,7 +439,7 @@ pulse remains the TRL 2 showstopper.
 - **ISRU anhydrous silicate fiber (Antigravity):** 2.98 km/s versus 2.60 km/s for imported CFRP (checked), with >95% of rotor mass made locally.
 - **Quiet release platform (Antigravity):** the Moon is seismically very quiet and rotates slowly. The modelled release error is 0.45 mm/s, which saves ~50 g of trajectory-correction mass. Gain is small; latch timing dominates.
 - **Staging:**
-  - A centrifuge (~3 km/s) followed by an HTS mass-driver rail adds the two speeds; a 10 km rail at 10⁴ g gives ~14 km/s, but the g-load then sets the rail length.
+  - A centrifuge followed by a fixed-length mass-driver rail adds **v²**, not speeds: v_exit² = v_in² + 2aL. A 10 km rail at 10⁴ g ideally gives **44.3 km/s from rest**, or **44.4 km/s with 3 km/s injection**; these are kinematic scales, not demonstrated launcher performance. The [EM launcher limits analysis](em-rail-limits.md) recommends a lunar **2.5–5 km/s first-stage study** after accounting for fields, switching, payload loads and power.
   - Release timed for an Earth flyby, or for the retrograde perigee dive below.
   - A tether catch: a stack released at ~2.5 km/s and caught by a lunar-orbit rotovator. Tethers are covered in Concept A/C.
 - **Retrograde Earth-perigee Oberth dive (Antigravity):** launch backwards against the Moon's motion, fall to a 300 km perigee at 10.89 km/s, then fire a 6 km/s kick stage → v∞ 12.88 km/s relative to Earth. The fair gain over a direct prograde kick is **+3.07 km/s** (agent said +3.93, but compared against v∞ relative to the Moon ⚠ +28%).
