@@ -18,9 +18,18 @@ Visit the printed HTTP URL. JSON fetching requires an HTTP server; opening
 installation is required. The 3D renderer imports pinned Three.js modules from
 jsDelivr; the canvas renderer and engine have no external dependencies.
 
-The default scenario is the fastest final v∞ in `scenarios/index.json`
-(currently Concept F). The picker lists that index in descending final v∞ order,
-including Voyager 1 and 2. The schema example remains available by explicit path
+The default remains **Concept F**, the fastest kilogram-class scenario (its
+modeled probe is 2 kg). `default: true` in `scenarios/index.json` makes that choice
+explicit: the faster gram-scale Concept I comparisons have a different mass
+budget and do not replace the project's kilogram-class starting point.
+The picker stays in descending final v∞ order, including Voyager 1 and 2.
+Every option starts with a trip time so mobile users can see it before a long
+scenario name. Times are distance / indexed cruise speed to Proxima (4.24 ly),
+except Concept I capture, which shows its separate ~95 yr Alpha Cen A benchmark.
+The index's `cruiseSpeed_km_s` values are checked against the engine in tests;
+`arrival` holds the Concept I benchmark, destination and qualifications.
+The selected option's destination, timing assumptions and feasibility are also
+visible below the picker. The schema example remains available by explicit path
 for testing. Load another file with the form or
 `?scenario=other-trajectory.json` (paths resolve relative to the viewer). Absolute
 HTTP URLs also work if their server permits CORS.
@@ -46,7 +55,7 @@ block at 45vh tall. Playback, travel highlights, story, analysis cards, and
 Advanced follow it in one scrolling page. Desktop uses a scrolling sidebar beside
 the plot.
 
-Select a leg or numbered event to inspect its v∞ in km/s and percentage of c
+Select a leg or numbered event to inspect its v∞ in km/s, fraction and percentage of c
 and move the white probe to that leg's preview start. The initial view selects
 the initial leg. Bound orbits display “Bound orbit” because
 they have no escape asymptote; a parabolic escape displays zero. In 3D, drag to
@@ -59,13 +68,14 @@ segments are grey. Hollow points denote bound orbits and are not connected as
 numeric zero speeds. Select a chart step to inspect its leg. The target readout
 tracks the selected leg's remaining gap to 300 km/s (approximately 0.1% c),
 percentage reached, and progress bar, even with the chart closed. Bound orbits contribute no escape-speed
-progress; above-target percentages remain visible while the bar caps at 100%.
+progress; above-target speeds show a multiple of the target while the bar caps at 100%.
 
 The **Travel time** highlights and **All travel times** table compare distance / final scenario v∞ with exactly
-0.001c (299.792458 km/s) for Pluto, the heliopause, the Oort cloud edges, Proxima,
+0.001c (299.792458 km/s) for Pluto, the heliopause, the Oort cloud edges, Proxima, Alpha Cen A/B (4.37 ly),
 Barnard's Star and Wolf 359. It stays tied to the loaded scenario's final result
 as you inspect other legs. Times use years (`0.6 yr`, `48 yr`), comma-grouped years
-rounded to three significant figures from 1,000 (`6,470 yr`, `12,000 yr`), and
+rounded to three significant figures from 1,000 (`6,470 yr`, `12,000 yr`), days
+below 0.1 yr (so fast solar-system transits do not display “0 yr”), and
 `million yr` from 1,000,000 (`1.2 million yr`). Bound or zero-speed escape states
 show “—”. This cruise estimate ignores time spent
 leaving the Sun's gravity, acceleration, braking and stellar motion. See
@@ -73,6 +83,26 @@ leaving the Sun's gravity, acceleration, braking and stellar motion. See
 The full scenario story, speed chart, and full travel table start expanded at widths ≥900px and closed
 below 900px. Their summary controls support mouse, touch, and keyboard toggling;
 resizing preserves the user's current choice.
+
+### Concept I: Laser sail (Starshot-class)
+
+Two exotic, beyond-target comparisons are explicitly **not a 1 kg probe**:
+
+- **0.2c Proxima flyby:** 59,958.492 km/s and 21.2 yr cruise; no destination brake.
+- **0.046c Alpha Cen A capture study:** 13,790.453 km/s and the ~95 yr A/B arrival
+  scale from Heller & Hippke (2017). A-only full-stop geometry and orbit settling
+  need a separate solution. The travel panel keeps this qualified literature
+  benchmark separate from its distance / speed rows. The ~92.2 yr Proxima coast
+  is not a captured arrival; the study's route via A/B takes ~141 yr to Proxima.
+
+These are already-accelerated, 1 AU perihelion hyperbolas, with
+`a = −μ☉/v∞²`, `e = 1 − 1 AU/a`, and no events. The engine shows an illustrative
+Newtonian departure coast to 30 AU. It does not model a relativistic laser shot,
+an interstellar intercept or stellar braking. No rocket or capture impulse is
+fabricated. The roughly 100 GW array, gram chip, meter-scale sail and lack of a
+0.2c brake are explained in the stories; the much larger, lighter-per-area
+capture sail is a separate architecture. Numbers, caveats and primary sources
+are in [nano-swarm.md](../../docs/analyses/nano-swarm.md).
 
 Press **Play** to preview all legs in sequence, **Pause** to stop, or scrub the
 **Preview time** slider (including with the keyboard) to seek while paused.

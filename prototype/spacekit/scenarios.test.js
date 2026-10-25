@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { test } from 'node:test';
 import { validateTrajectory } from '../../scripts/validate-schema.mjs';
-import { applyTrajectory, AU_KM } from './engine.js';
-import { buildTrajectory } from './viewer-data.js';
+import { applyTrajectory, AU_KM, C_KM_S } from './engine.js';
+import { buildTrajectory, cruiseYears, LIGHT_YEAR_KM, formatTravelYears,
+  buildContinuousArcs, buildContinuousPlayback, playbackAt } from './viewer-data.js';
 import { pickerOptions, selectScenario } from './scenario-picker.js';
 
 const dir = new URL('./scenarios/', import.meta.url);
@@ -22,10 +23,11 @@ test('index.json lists every scenario file once with id/name/file/summary', asyn
   assert.deepEqual(index.map((e) => e.file).sort(), files);
   assert.equal(new Set(index.map((e) => e.id)).size, index.length);
   for (const entry of index) {
-    assert.deepEqual(Object.keys(entry).sort(), entry.category === 'exotic'
-      ? ['category', 'feasibility', 'file', 'id', 'name', 'showstopper', 'summary']
-      : ['file', 'id', 'name', 'summary']);
-    for (const key of Object.keys(entry)) assert.ok(typeof entry[key] === 'string' && entry[key].trim(), `${entry.id}.${key}`);
+    for (const key of ['file', 'id', 'name', 'summary', ...(entry.category === 'exotic' ? ['category', 'feasibility', 'showstopper'] : [])]) {
+      assert.ok(typeof entry[key] === 'string' && entry[key].trim(), `${entry.id}.${key}`);
+    }
+    assert.ok(Number.isFinite(entry.cruiseSpeed_km_s) && entry.cruiseSpeed_km_s > 0);
+    close(entry.cruiseSpeed_km_s, applyTrajectory(scenarios[entry.id]).vInf_km_s, 1e-6, 'indexed cruise speed');
     assert.equal(scenarios[entry.id].name, entry.name);
   }
 });
@@ -170,14 +172,20 @@ test('index order matches descending engine-computed final v∞', () => {
   assert.deepEqual(speeds, [...speeds].sort((a, b) => b - a));
 });
 
-test('picker lists only index entries and defaults to the fastest final v∞', () => {
+test('picker keeps fastest-first order but defaults to kilogram-class F; explicit paths override it', () => {
   const options = pickerOptions(index);
   assert.deepEqual(options.map(o => o.value), index.map(e => `scenarios/${e.file}`));
-  assert.deepEqual(options.map(o => o.label), index.map(e => e.category === 'exotic' ? `Exotic · speculative — ${e.name}` : e.name));
+  for (const [i, option] of options.entries()) {
+    const entry = index[i];
+    const years = entry.arrival?.years ?? cruiseYears(4.24 * LIGHT_YEAR_KM, entry.cruiseSpeed_km_s);
+    assert.ok(option.label.startsWith(`~${formatTravelYears(years)} · ${entry.pickerName ?? entry.name}`));
+    assert.match(option.title, entry.arrival ? /arrival|frame/ : /Proxima.*no braking/);
+  }
   assert.ok(!options.some(o => o.value === 'schema-example.json'));
-  const fastest = [...index].sort((a, b) => applyTrajectory(scenarios[b.id]).vInf_km_s - applyTrajectory(scenarios[a.id]).vInf_km_s)[0];
+  assert.equal(index[0].id, 'concept-i-flyby');
+  assert.deepEqual(index.filter(entry => entry.default).map(entry => entry.id), ['concept-f']);
   for (const search of ['', '?scenario=', '?other=1']) {
-    assert.equal(selectScenario(options, search), `scenarios/${fastest.file}`);
+    assert.equal(selectScenario(options, search), 'scenarios/scenario-f.json');
   }
   for (const entry of index) {
     assert.equal(selectScenario(options, `?scenario=scenarios/${entry.file}`), `scenarios/${entry.file}`);
@@ -185,19 +193,53 @@ test('picker lists only index entries and defaults to the fastest final v∞', (
   assert.equal(selectScenario(options, '?scenario=custom.json'), 'custom.json');
   assert.equal(selectScenario(options, '?scenario=schema-example.json'), 'schema-example.json');
   assert.equal(selectScenario([], '?scenario=custom.json'), 'custom.json');
+  assert.equal(selectScenario([{ value: 'first.json' }], ''), 'first.json');
   assert.throws(() => selectScenario([], ''), /No reference scenarios/);
   assert.throws(() => pickerOptions({}), /must be an array/);
 });
 
 test('exotic picker entries clearly label speculation and expose feasibility and showstoppers', () => {
-  for (const id of ['concept-d', 'concept-e', 'concept-f', 'concept-g', 'concept-h']) {
+  for (const id of index.filter(entry => entry.category === 'exotic').map(entry => entry.id)) {
     const entry = index.find(entry => entry.id === id);
     assert.equal(entry.category, 'exotic');
     const option = pickerOptions(index).find(option => option.id === entry.id);
     assert.match(option.label, /Exotic · speculative/);
-    assert.match(option.feasibility, /TRL 2/);
+    assert.ok(option.feasibility.length > 20);
     assert.equal(option.showstopper, entry.showstopper);
     assert.ok(option.title.includes(`Showstopper: ${entry.showstopper}`));
     assert.ok(option.title.includes(`Feasibility: ${entry.feasibility}`));
   }
 });
+
+for (const [id, fraction, years, destination] of [
+  ['concept-i-flyby', 0.2, 21.2, 'Proxima Centauri'],
+  ['concept-i-capture', 0.046, 95, 'Alpha Cen A']
+]) {
+  test(`${id} preserves the stated cruise scale with finite coast playback and honest arrival metadata`, () => {
+    const doc = scenarios[id];
+    assert.deepEqual(doc.events, [], 'already accelerated; no fabricated burn or capture event');
+    const model = buildTrajectory(doc);
+    close(model.result.vInf_km_s, fraction * C_KM_S, 1e-6, 'cruise speed');
+    assert.equal(model.result.totalDeltaV_km_s, 0);
+    const playback = buildContinuousPlayback(model, buildContinuousArcs(model));
+    assert.ok(Number.isFinite(playback.duration_s) && playback.duration_s > 0);
+    for (const f of [0, 0.25, 0.5, 0.75, 1]) {
+      assert.ok(playbackAt(playback, f * playback.duration_s).position.every(Number.isFinite));
+    }
+    close(Math.hypot(...playbackAt(playback, playback.duration_s).position), 30, 1e-6, 'preview radius cap');
+    const entry = index.find(entry => entry.id === id);
+    assert.equal(entry.beyondTarget, true);
+    assert.equal(entry.massClass, 'Not a 1 kg probe');
+    assert.equal(entry.arrival.years, years);
+    assert.equal(entry.arrival.destination, destination);
+    const option = pickerOptions(index).find(option => option.id === id);
+    assert.match(option.label, /Beyond-target.*Not a 1 kg probe/);
+    assert.match(doc.description, /does not solve.*relativistic launch.*braking/);
+    if (id.endsWith('flyby')) close(cruiseYears(4.24 * LIGHT_YEAR_KM, model.result.vInf_km_s), 21.2, 1e-9, 'flyby cruise');
+    else {
+      assert.match(entry.arrival.note, /not a simulated parking orbit/);
+      assert.match(entry.arrival.note, /Proxima.*141 yr, not 95 yr/);
+      close(cruiseYears(4.24 * LIGHT_YEAR_KM, model.result.vInf_km_s), 92.173913, 1e-6, 'Proxima coast differs from capture benchmark');
+    }
+  });
+}

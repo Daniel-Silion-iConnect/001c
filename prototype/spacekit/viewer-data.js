@@ -130,7 +130,8 @@ export function buildTrajectory(doc, options = {}) {
 export function speedText(vInf) {
   return vInf === null
     ? { speed: 'Bound orbit', percent: '— (no escape asymptote)' }
-    : { speed: `${vInf.toFixed(3)} km/s`, percent: `${(100 * vInf / C_KM_S).toFixed(6)}% of c` };
+    : { speed: `${vInf.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} km/s`,
+      percent: `${Number((vInf / C_KM_S).toPrecision(6))}c · ${Number((100 * vInf / C_KM_S).toPrecision(6))}% of c` };
 }
 
 export const SPEED_TARGET_KM_S = 300;
@@ -144,7 +145,8 @@ export const TRAVEL_MILESTONES = Object.freeze([
   { name: 'Heliopause', distance: 120, unit: 'AU' },
   { name: 'Oort cloud · inner', distance: 2000, unit: 'AU' },
   { name: 'Oort cloud · outer', distance: 100000, unit: 'AU' },
-  { name: 'Alpha Centauri / Proxima', distance: 4.24, unit: 'ly' },
+  { name: 'Proxima Centauri', distance: 4.24, unit: 'ly' },
+  { name: 'Alpha Cen A / B', distance: 4.37, unit: 'ly' },
   { name: 'Barnard’s Star', distance: 5.96, unit: 'ly' },
   { name: 'Wolf 359', distance: 7.86, unit: 'ly' }
 ].map(Object.freeze));
@@ -169,6 +171,8 @@ export function buildTravelTimeRows(vInf_km_s) {
 export function formatTravelYears(years) {
   if (years === null) return '—';
   if (!Number.isFinite(years) || years < 0) throw new Error('Time must be null or nonnegative and finite.');
+  // Fast sails cross the solar system in days; do not round these to “0 yr”.
+  if (years > 0 && years < 0.1) return `${(years * 365.25).toLocaleString('en-US', { maximumSignificantDigits: 2 })} d`;
   // Round before choosing the unit so 999,999 years becomes 1 million, not 1,000,000 yr.
   const rounded = years < 1000 ? Number(years.toFixed(1)) : Number(years.toPrecision(3));
   if (rounded >= 1000000) {
@@ -203,6 +207,14 @@ export function targetProgress(vInf, target_km_s = SPEED_TARGET_KM_S) {
     percentReached,
     progressPercent: Math.min(100, percentReached)
   };
+}
+
+export function targetProgressText(vInf) {
+  const progress = targetProgress(vInf);
+  if (progress.percentReached > 100) {
+    return `Beyond target · ${(progress.percentReached / 100).toLocaleString('en-US', { maximumFractionDigits: 1 })}× target · 0 km/s remaining`;
+  }
+  return `${progress.gap_km_s.toFixed(3)} km/s remaining · ${progress.percentReached.toFixed(2)}% reached${progress.bound ? ' · Bound orbit (no escape asymptote)' : ''}`;
 }
 
 // Time from periapsis in seconds. Angles here are radians, unlike schema angles.

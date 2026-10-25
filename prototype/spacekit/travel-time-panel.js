@@ -1,8 +1,8 @@
-import { buildTravelTimeRows, formatTravelYears, CRUISE_TARGET_KM_S } from './viewer-data.js';
+import { buildTravelTimeRows, formatTravelYears, speedText, CRUISE_TARGET_KM_S } from './viewer-data.js';
 import { createDisclosureCard } from './disclosure-card.js';
 
 // Uses the loaded scenario's final result, independent of the inspected leg.
-export function createTravelTimePanel(vInf_km_s) {
+export function createTravelTimePanel(vInf_km_s, arrival) {
   const panel = document.createElement('section');
   panel.id = 'travel-time';
   panel.setAttribute('aria-labelledby', 'travel-time-title');
@@ -15,19 +15,30 @@ export function createTravelTimePanel(vInf_km_s) {
   const card = createDisclosureCard('All travel times', 'travel-card');
   card.content.innerHTML = `
     <table aria-describedby="travel-time-note">
-      <caption>Cruise estimates in years (yr)</caption>
+      <caption>Cruise estimates in years (yr) or days (d)</caption>
       <thead><tr><th scope="col">Milestone</th><th scope="col">Scenario</th><th scope="col">0.001c</th></tr></thead>
       <tbody></tbody>
     </table>
   `;
   panel.append(card.element);
-  panel.querySelector('.travel-speed').textContent = `Final v∞: ${vInf_km_s === null ? 'bound orbit' : `${vInf_km_s.toFixed(3)} km/s`} · target: ${CRUISE_TARGET_KM_S.toFixed(2)} km/s`;
+  panel.querySelector('.travel-speed').textContent = `Final v∞: ${speedText(vInf_km_s).speed} · ${speedText(vInf_km_s).percent} · target: ${CRUISE_TARGET_KM_S.toFixed(2)} km/s`;
+  if (arrival) {
+    const benchmark = document.createElement('section');
+    const heading = document.createElement('h3');
+    heading.textContent = `${arrival.destination} · ${arrival.mode}`;
+    const time = document.createElement('strong');
+    time.textContent = `~${formatTravelYears(arrival.years)} arrival benchmark`;
+    const note = document.createElement('p');
+    note.textContent = arrival.note;
+    benchmark.append(heading, time, note);
+    panel.querySelector('.travel-highlights').append(benchmark);
+  }
   const body = panel.querySelector('tbody');
   const rows = buildTravelTimeRows(vInf_km_s);
   for (const row of rows.filter(row => row.name.includes('Proxima') || row.name === 'Heliopause').reverse()) {
     const highlight = document.createElement('section');
     const heading = document.createElement('h3');
-    heading.textContent = row.name.includes('Proxima') ? 'Proxima Centauri' : row.name;
+    heading.textContent = row.name.includes('Proxima') ? 'Proxima Centauri · cruise only' : row.name;
     const comparison = document.createElement('p');
     const scenario = document.createElement('strong');
     scenario.textContent = formatTravelYears(row.years);

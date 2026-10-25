@@ -1,0 +1,22 @@
+{
+  "name": "Concept I: Laser sail (Starshot-class) — 0.2c flyby",
+  "description": "Beyond-target · gram-scale, not a 1 kg probe. Laser-launched 0.2c flyby of Proxima in ~21.2 yr; no destination braking. Proposed Starshot-class architecture; a roughly 100 GW phased array accelerates a gram chip on a meter-scale sail. This is not demonstrated hardware. Kilometre-scale beam control, sail heat and stability, dust survival and the return data link; no chip-sized brake at 0.2c. 4.24 ly ÷ 0.2c = 21.2 yr in the Earth/target frame, excluding launch acceleration and stellar motion. No braking. Numbers and sources: docs/analyses/nano-swarm.md. Illustrative already-accelerated departure coast at 1 AU, with Newtonian solar gravity and the specified cruise speed at infinity. The hyperbola has a = -mu_sun/v_inf² and perihelion at 1 AU; it encodes cruise energy, not a powered launch. No laser impulse or capture event is fabricated. The preview stops at 30 AU; it does not solve a target intercept, relativistic launch, or destination braking. The roughly 100 GW array and gram chip refer to Starshot shorthand; the capture study instead assumes ~100,000 m² for a 10 g payload, not the same meter-scale sailcraft.",
+  "epoch": "2026-10-25T00:00:00Z",
+  "centralBody": "Sun",
+  "frame": "ECLIPJ2000",
+  "initialElements": {
+    "type": "keplerian",
+    "a": -2.4676571787769465e-7,
+    "e": 4052427.7657618206,
+    "i": 0,
+    "raan": 0,
+    "argp": 0,
+    "nu": 0,
+    "units": {
+      "a": "AU",
+      "angles": "deg"
+    }
+  },
+  "events": [],
+  "targetAsymptotic_km_s": 59958.4916
+}

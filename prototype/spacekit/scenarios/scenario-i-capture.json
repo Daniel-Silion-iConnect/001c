@@ -1,0 +1,22 @@
+{
+  "name": "Concept I: Laser sail (Starshot-class) — 0.046c capture",
+  "description": "Beyond-target · ultralight sailcraft, not a 1 kg probe. 0.046c cruise with conditional photogravitational capture at Alpha Cen A on the ~95 yr A/B arrival scale (Heller & Hippke 2017). Literature benchmark with extremely favorable sail loading (~0.00086 g/m²); the 95 yr A/B arrival is not a solved A-only parking orbit. A highly reflective, enormous ultralight sail must survive close stellar encounters. Launch, A-only full-stop geometry and orbit settling are not modeled. Heller & Hippke (2017): ~95 yr A/B arrival scale. A-only capture and orbit settling require their own solution; this is not a simulated parking orbit. Proxima via A/B takes ~141 yr, not 95 yr. Numbers and sources: docs/analyses/nano-swarm.md. Illustrative already-accelerated departure coast at 1 AU, with Newtonian solar gravity and the specified cruise speed at infinity. The hyperbola has a = -mu_sun/v_inf² and perihelion at 1 AU; it encodes cruise energy, not a powered launch. No laser impulse or capture event is fabricated. The preview stops at 30 AU; it does not solve a target intercept, relativistic launch, or destination braking. The roughly 100 GW array and gram chip refer to Starshot shorthand; the capture study instead assumes ~100,000 m² for a 10 g payload, not the same meter-scale sailcraft.",
+  "epoch": "2026-10-25T00:00:00Z",
+  "centralBody": "Sun",
+  "frame": "ECLIPJ2000",
+  "initialElements": {
+    "type": "keplerian",
+    "a": -0.000004664758371979106,
+    "e": 214374.37590880026,
+    "i": 0,
+    "raan": 0,
+    "argp": 0,
+    "nu": 0,
+    "units": {
+      "a": "AU",
+      "angles": "deg"
+    }
+  },
+  "events": [],
+  "targetAsymptotic_km_s": 13790.453067999999
+}

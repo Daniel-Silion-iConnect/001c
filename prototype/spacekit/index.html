@@ -17,9 +17,10 @@
   <aside id="info" aria-label="Trajectory controls">
     <header><span class="eyebrow">001c / MISSION DESIGN</span><h1 id="title">Trajectory viewer</h1></header>
     <label for="picker">Reference scenario</label>
-    <select id="picker" aria-describedby="picker-note picker-feasibility"></select>
+    <select id="picker" aria-describedby="picker-note picker-trip picker-feasibility"></select>
+    <p id="picker-trip" class="muted"></p>
     <p id="picker-feasibility" hidden></p>
-    <p id="picker-note" class="muted">Concepts and Voyager baselines, fastest final v∞ first.</p>
+    <p id="picker-note" class="muted">Fastest cruise first · times to Proxima unless stated. Default: Concept F, fastest kilogram-class concept.</p>
     <p id="load-status" role="status">Loading scenario…</p>
     <section id="hud" hidden>
       <dl class="headline"><div><dt>Selected leg · v∞</dt><dd id="speed"></dd></div><div><dt>Fraction of light speed</dt><dd id="percent"></dd></div></dl>

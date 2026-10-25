@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { AU_KM, C_KM_S, MU, applyTrajectory, circularSpeed } from './engine.js';
 import { validateScenario, trueAnomalyFromMean, engineElements, buildTrajectory, speedText, buildSpeedSeries, targetProgress, SPEED_TARGET_KM_S, buildPlayback, playbackAt,
-  anomalyOfPosition, radiusCapAnomaly, legArcSpan, sampleArc, buildContinuousArcs, buildContinuousPlayback } from './viewer-data.js';
+  anomalyOfPosition, radiusCapAnomaly, legArcSpan, sampleArc, buildContinuousArcs, buildContinuousPlayback, targetProgressText } from './viewer-data.js';
 import { legColor } from './renderers.js';
 import { cruiseYears, buildTravelTimeRows, formatTravelYears, CRUISE_TARGET_KM_S,
   LIGHT_YEAR_KM, JULIAN_YEAR_S } from './viewer-data.js';
@@ -49,14 +49,14 @@ test('cruise times convert AU and light-years and compare with exactly 0.001c', 
   near(LIGHT_YEAR_KM, 9460730472580.8, 0.01);
   near(cruiseYears(31557600 * 10, 10), 1);
   const rows = buildTravelTimeRows(CRUISE_TARGET_KM_S / 2);
-  assert.equal(rows.length, 7);
+  assert.equal(rows.length, 8);
   assert.deepEqual(rows.map(row => [row.distance, row.unit]), [
     [39.5, 'AU'], [120, 'AU'], [2000, 'AU'], [100000, 'AU'],
-    [4.24, 'ly'], [5.96, 'ly'], [7.86, 'ly']
+    [4.24, 'ly'], [4.37, 'ly'], [5.96, 'ly'], [7.86, 'ly']
   ]);
   near(rows[0].targetYears, 0.6245940427, 1e-9);
   for (const row of rows) near(row.years, 2 * row.targetYears);
-  for (const [index, years] of [[4, 4240], [5, 5960], [6, 7860]]) near(rows[index].targetYears, years);
+  for (const [index, years] of [[4, 4240], [5, 4370], [6, 5960], [7, 7860]]) near(rows[index].targetYears, years);
 });
 
 test('cruise times use final scenario speed and preserve bound and zero escape cases', () => {
@@ -78,6 +78,7 @@ test('travel times use readable years, three significant figures for long trips,
   assert.equal(formatTravelYears(null), '—');
   for (const [years, text] of [
     [0, '0 yr'], [0.62458, '0.6 yr'], [48, '48 yr'], [48.16, '48.2 yr'],
+    [0.01, '3.7 d'], [0.00001, '0.0037 d'],
     [999, '999 yr'], [999.94, '999.9 yr'], [999.99, '1,000 yr'],
     [1000, '1,000 yr'], [1004, '1,000 yr'], [1005, '1,010 yr'],
     [4240, '4,240 yr'], [6471, '6,470 yr'], [11990, '12,000 yr'],
@@ -278,10 +279,26 @@ test('empty events show the initial orbit and null v∞ means bound, not zero', 
   assert.equal(result.result.totalDeltaV_km_s, 0);
   assert.match(speedText(null).speed, /Bound/);
   assert.match(speedText(null).percent, /no escape/);
-  assert.deepEqual(speedText(0), { speed: '0.000 km/s', percent: '0.000000% of c' });
-  assert.deepEqual(speedText(C_KM_S / 1000), { speed: '299.792 km/s', percent: '0.100000% of c' });
+  assert.deepEqual(speedText(0), { speed: '0.000 km/s', percent: '0c · 0% of c' });
+  assert.deepEqual(speedText(C_KM_S / 1000), { speed: '299.792 km/s', percent: '0.001c · 0.1% of c' });
   assert.equal(legColor(0), legColor(6));
   assert.notEqual(legColor(0), legColor(1));
+});
+
+test('fast sail comparisons show fractions of c, bounded progress and days for short trips', () => {
+  assert.deepEqual(speedText(0.2 * C_KM_S), { speed: '59,958.492 km/s', percent: '0.2c · 20% of c' });
+  assert.deepEqual(speedText(0.046 * C_KM_S), { speed: '13,790.453 km/s', percent: '0.046c · 4.6% of c' });
+  assert.match(targetProgressText(0.2 * C_KM_S), /Beyond target · 199.9× target · 0 km\/s remaining/);
+  assert.match(targetProgressText(0.046 * C_KM_S), /Beyond target · 46× target/);
+  assert.match(targetProgressText(75), /225.000 km\/s remaining · 25.00% reached/);
+  assert.match(targetProgressText(null), /Bound orbit/);
+  for (const fraction of [0.2, 0.046]) {
+    assert.equal(targetProgress(fraction * C_KM_S).progressPercent, 100);
+    const rows = buildTravelTimeRows(fraction * C_KM_S);
+    assert.match(formatTravelYears(rows[0].years), / d$/);
+    assert.match(formatTravelYears(rows[1].years), / d$/);
+    assert.equal(rows.find(row => row.name === 'Alpha Cen A / B').distance, 4.37);
+  }
 });
 
 const conicPreview = (a, e, centralBody = 'Sun', orientation = {}) => {

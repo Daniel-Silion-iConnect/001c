@@ -24,6 +24,10 @@ export function narrativeText(data, scenarioId, doc, index, status) {
   const intro = text(data?.intro) || 'Project 001c explores ways to accelerate a small probe to 0.001c (about 300 km/s).';
   const scenario = entry(data?.scenarios, scenarioId) || text(doc.description) || 'No narrative is available for this scenario. Inspect its legs and engine notes below.';
   const event = index > 0 ? doc.events?.[index - 1] : undefined;
+  if (!event && ['concept-i-flyby', 'concept-i-capture'].includes(scenarioId)) return {
+    intro, scenario, eventTitle: 'Leg 0 · Departure coast',
+    event: 'The initial state already contains the assumed cruise energy. This preview shows only the departure coast to 30 AU; it does not simulate launch acceleration, an interstellar intercept or destination braking.'
+  };
   if (!event) return {
     intro, scenario, eventTitle: 'Leg 0 · Initial orbit',
     event: 'The probe starts on this orbit before any modeled events. Select an event or play the preview to follow the mission.'
