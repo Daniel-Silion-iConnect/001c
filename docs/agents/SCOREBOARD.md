@@ -91,3 +91,4 @@ Round 7 review adjustments (coordinator code review of #48–#51): the physics m
 | #68 | Codex | EM rail limits | 10 | 10 | 10 | 30 | Lengths spot-checked; verdict: 2.5–5 km/s lunar coilgun |
 | #70 | Codex | Great Comet 1843 hitchhike | 10 | 10 | 10 | 30 | Exact 74.535 km/s burn; independently confirmed |
 | #72 | Codex | Orion + sundiver sail, Concept G | 10 | 10 | 10 | 30 | Corrected β: 0.708 for a parabolic dive vs 1.708 from rest; checked |
+| #75 | Codex | Nano-swarm analysis + claims check, Concept H | 10 | 10 | 10 | 30 | Picked up the mid-run claims addendum; Airy radius and accel spot-checked; magsail 0.2c→41 yr, 1,906 t |
