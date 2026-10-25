@@ -268,14 +268,140 @@ launcher inefficiency, ionisation and heating.
   saturation, pulse timing, structural stress and heating remain unmodelled;
   neither route is demonstrated at the required speeds.
 
-Near arrival, a separate timed beam must vaporise/dissociate and ionise the
-**whole** pellet upstream, allow a controlled plasma plume to form, and keep
-it charged until the probe's field bends it backward. Its momentum goes into
-the field source and hence the probe; a static magnetic field does not supply
-the launch energy. Reject or divert any incompletely ionised shot. Aluminium
-is the recommended compromise for handling and survival, with manageable
-first-ionisation energy and intermediate A/z; **launching, aiming, creating
-and reflecting every plasma pulse remains the TRL 2 showstopper**.
+### Arrival beam and magnetic reflector (Concept F, issue #65)
+
+**Which beam, where, and when?** An architecture to investigate is a **pulsed
+laser carried by the probe, aimed upstream at the incoming pellet stream**.
+It is separate from the distant laser that launches the sail chips. The
+arrival beam heats the pellets, not the probe. Repeated or shaped pulses
+would have to vaporise the core as well as the surface, then ionise the
+vapour; merely charging the solid sphere does not make its atoms steerable.
+An onboard ultraviolet conversion laser is also proposed in
+[Kare's SailBeam NIAC report, pp. 21–25](https://www.niac.usra.edu/files/studies/final_report/597Kare.pdf).
+That study concerns thin microsails, not these much heavier solid Al spheres;
+it provides architectural context, not validation of this arrival budget.
+An electron beam is an alternative local heater/ioniser, but its deposition
+depth, space charge, return-current/charge balance and deflection by the
+probe's own field also need design. Neither beam has demonstrated this
+whole-pellet conversion. Putting the heater on an upstream station moves
+its power hardware off the probe, but requires that station to track the
+accelerating encounter region. Ionising at the distant launcher instead
+would let the cloud spread throughout the long delivery flight. These are
+architecture inferences, not specifications established by the sources.
+
+`pellet_arrival_budget` in [`ideas_calc.py`](../../analysis/ideas_calc.py)
+uses the same 10,000 aluminium pellets and an **assumed uniform arrival rate
+over 30 days**: **0.003858 shots/s**, or **one every 259.2 s**. This is an
+average-rate equivalent, not a solved launch schedule. We choose **10 μs**
+of heating per shot to expose the pulse-power requirement; a longer pulse
+reduces that power but lets the pellet travel farther while being heated.
+
+| Al energy budget per 0.375 g pellet | Energy | Average over arrivals | Power during a 10 μs pulse |
+|---|---:|---:|---:|
+| Remove one electron from every atom, atomic floor | 8.027 kJ | 30.97 W | 0.803 GW |
+| Remove all 13 electrons per atom, atomic floor | 8.8572 MJ | 34.17 kW | 0.886 TW |
+| Single ionisation + illustrative atomisation and heat | 52.84 kJ | 203.85 W | 5.284 GW |
+| Full stripping + illustrative atomisation and heat | 9.1434 MJ | 35.28 kW | 0.914 TW |
+
+The floors use the [NIST Al ionisation thresholds](https://physics.nist.gov/cgi-bin/ASD/ie.pl?at_num_out=on&biblio=on&e_out=0&el_name_out=on&format=1&level_out=on&seq_out=on&shells_out=on&spectra=Al&unc_out=on&units=1)
+already tabulated above. For an illustrative extra heat allowance, take
+**T_e = T_i = 10 eV**, with 1.5 N e (T_i + z T_e) of random kinetic energy:
+**40.23 kJ** for z = 1, **281.61 kJ** for z = 13. Add a rough **4.582 kJ**
+phase-change allowance using **329.70 kJ/mol** for Al(s) → Al(g) at 298 K
+from [NIST-JANAF via the Chemistry WebBook](https://webbook.nist.gov/cgi/cbook.cgi?ID=C7429905&Mask=1).
+This combines an enthalpy scale and a thermal-energy estimate, not an exact
+heating path. Full stripping is a comparison, **not needed for reflection**;
+10 eV does not establish or maintain Al¹³⁺ in equilibrium. All powers in the
+table are deposited-energy requirements (pulse averages, not measured peak
+waveforms). Source power must be divided by deposition efficiency; electrical
+input also includes laser/electron-source efficiency. Radiation, recombination,
+expansion work and coatings add costs. The small duty factor **3.858×10⁻⁸**
+does not make the pulse source, energy storage or heat rejection fit a 2 kg probe.
+
+**Why every atom matters.** A neutral core or fragment is not turned by the
+ion reflector. At **100 km/s**, ½w² is **5 GJ/kg = 5 MJ/g**, not the
+5 MJ/kg = 5 kJ/g quoted in issue #65. A **1 g** fragment carries the energy
+of about **1.19 kg of TNT** using 4.2 kJ/g TNT, and the reference **0.375 g**
+pellet carries **1.875 MJ**. TNT equivalence compares energy only, not blast
+or impact coupling. Convert the whole intercepted mass and keep it ionised;
+any surviving neutral matter must safely miss the spacecraft. Fault detection
+and diversion before impact remain unsolved, not an assumed safety system.
+
+**Time to spread.** Pressure from hot electrons and ions makes the released
+cloud expand. With singly charged Al and the assumed temperatures, an
+isothermal-electron, adiabatic-ion fluid estimate is
+c_s = √[e(z T_e + (5/3)T_i)/m_Al] = **9.765 km/s**. The
+[NRL Plasma Formulary, pp. 26–29](https://homepage.physics.uiowa.edu/~ghowes/teach/phys4731/resources/NRL_Plasma_Formulary_2023.pdf)
+gives the underlying sound, gyro and magnetic-pressure scales. Taking
+R ≈ c_s t, a **10 m radius (20 m diameter)** cloud needs about **1.024 ms**.
+At 100 km/s, finish the heating pulse about **102.4 m upstream of the intended
+magnetic interaction region**; start it another **1 m** upstream for a 10 μs
+pulse. This distance is to the interaction region, not the hull. Light-travel
+and tracking delays must also enter a real firing solution. Holding temperature
+constant makes this a characteristic size/timing estimate, not an ablation
+simulation: cooling, initial plume velocity, nonuniformity, continued heating
+and recombination change the result. A cloud has no sharp edge. Earlier
+ionisation allows more spreading but demands a wider magnetic capture region.
+
+**How the push reaches the probe.** The proposed reflector is a superconducting
+current loop (a magsail), or several coils arranged as a magnetic mirror.
+Its field applies q v × B to ions; the electron/ion plasma also develops
+currents and electric fields. Those plasma fields exert the reaction force
+on the coil's current: dF = I dℓ × B_plasma (or J_coil × B_plasma per volume).
+The coil's supports transmit the load to the spacecraft. Its own field alone
+does not provide a net thrust. These are the
+[Lorentz-force relations, MIT §8.2–8.5](https://web.mit.edu/8.02t/www/802TEAL3D/visualizations/coursenotes/modules/guide08.pdf).
+In the instantaneous probe frame, reversing the pellet's longitudinal
+velocity from +w to −w changes its momentum by **2mw = 75 N s**, versus
+**mw = 37.5 N s** for stopping/absorption. The reference 80% gives **60 N s**
+per shot and a mean **0.2315 N**; spread over the **0.200 ms** cloud crossing,
+the load scale is **300 kN**, not a steady gentle push. Actual pulse shape
+requires a plasma calculation. A static field redirects particle motion;
+the probe gains energy from the moving stream in the launcher frame.
+
+`pellet_reflector_budget` computes **895.25 Pa** ram pressure ρw² for a
+uniform 10 m radius cloud, versus **39.79 Pa** magnetic pressure at **10 mT**.
+Matching these scales requires **47.434 mT locally**, not just at the winding.
+This is only a pressure-balance scale: planar full reversal can require a
+**2ρw²** stress scale, corresponding to **67.08 mT**, before geometry and
+margin. At 47.434 mT, transverse Al⁺ has **r_L = 0.590 m** (Al¹³⁺: **0.0453 m**)
+and a nominal half-orbit time **18.52 μs**. At 10 mT Al⁺ instead has a
+**2.796 m** radius. Collisions and collective response discussed above still
+apply. Axial motion parallel to the field is not bent by q v × B; a mirror
+needs suitable pitch angles and slow field variation along a gyro orbit.
+Neither pressure balance nor small gyroradius proves the assumed 80% reflection.
+
+**Coil cost, with its assumptions exposed.** Consider one round loop of
+**10 m radius**. The vacuum field on its axis is
+B(z) = μ₀ I R²/[2(R² + z²)^(3/2)], so B(0) = μ₀ I/(2R), from
+[the circular-loop Biot–Savart derivation](https://openstax.org/books/university-physics-volume-2/pages/12-4-magnetic-field-of-a-current-loop).
+For scale only, choose **100 A/mm²** conductor current density and
+**8960 kg/m³**, [copper's density](https://pdg.lbl.gov/2024/AtomicNuclearProperties/HTML/copper_Cu.html).
+This is a copper-density mass proxy, not a superconducting cable rating or
+a viable resistive-copper operating point. Area = I/J, conductor radius
+a = √(area/π), and mass = 2πR × area × density. The thin-wire external
+inductance estimate L ≈ μ₀R[ln(8R/a) − 2] and U = ½LI² use the
+[round-loop model with negligible internal flux](https://pmc.ncbi.nlm.nih.gov/articles/PMC3216619/).
+
+| Required field at the specified point | Single-turn current | Conductor mass proxy | Stored field energy |
+|---|---:|---:|---:|
+| 10 mT at loop centre | 159 kA | 896 kg | 0.983 MJ |
+| 47.434 mT at loop centre | 755 kA | 4250 kg | 19.33 MJ |
+| 47.434 mT on axis, 10 m upstream of centre | 2.135 MA | 12,021 kg | 139.74 MJ |
+
+At one loop radius upstream, the field is only **0.354** of its centre value;
+centre field cannot be promised throughout the cloud. The last row illustrates
+that falloff, not a reflector geometry for axial ions. More turns reduce
+current per turn while retaining the required ampere-turns; at fixed current
+density and radius they do not remove the conductor mass scale. Real designs
+need field mapping, structural restraint, insulation, cryogenics, charging
+and quench protection. Stored energy is a startup/reservoir requirement,
+not energy consumed afresh on every reflection. These costs are absent from
+the illustrative **2 kg** probe budget: **the example does not establish a
+mass-feasible reflector or pulse laser**. The original **300 km/s Δv** and
+**317.7 km/s solar v∞** remain conditional momentum-budget results, not a
+validated mission. Launching, aiming, creating and reflecting every plasma
+pulse remains the TRL 2 showstopper.
 
 ## Seeded idea 1: antimatter
 - 1 kg at 300 km/s carries 4.5×10¹⁰ J. A beamed-core engine (v_e ≈ 0.33c, η ≈ 0.1 to jet) needs ~**2.5 mg** of antiprotons, a tiny propellant fraction.

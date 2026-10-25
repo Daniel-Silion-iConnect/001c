@@ -243,6 +243,132 @@ def pellet_launch_and_environment(mass_kg=0.000375, pellet_count=10000,
     }
 
 
+def pellet_arrival_budget(boost_days=30, pulse_s=10e-6,
+                          electron_temperature_eV=10, ion_temperature_eV=10,
+                          cloud_radius_m=10):
+    """Issue #65: Al atomic floors, illustrative heat and expansion scales.
+
+    Fixed Concept F pellet/stream inputs. Temperatures are independently
+    assumed, not an ionisation-equilibrium or laser-ablation calculation.
+    Thermal energy = 3/2 N e (Ti + z Te); atomisation uses NIST-JANAF
+    Al(g) formation enthalpy at 298 K, 329.7 kJ/mol, as a rough phase cost.
+    Sound speed uses isothermal electrons and 3-D adiabatic ions (gamma=5/3).
+    R/cs assumes constant temperature; cooling/recombination are not evolved.
+    Full stripping at 10 eV is NOT asserted to be a sustainable charge state.
+    Source links and all engineering assumptions are in exotic-ideas.md.
+    """
+    for value in (boost_days, pulse_s, electron_temperature_eV,
+                  ion_temperature_eV, cloud_radius_m):
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError("arrival inputs must be finite and positive")
+    mass = 0.000375
+    count = 10000
+    w = 100e3
+    duration = boost_days * 86400
+    interval = duration / count  # uniform-rate equivalent; no firing schedule
+    if pulse_s >= interval:
+        raise ValueError("arrival pulse must be shorter than the shot interval")
+    al = pellet_material_comparison()['aluminium']
+    atoms = al['components']['Al']['atomCount']
+    ion_mass = ELEMENTS['Al']['A'] * ATOMIC_MASS_KG
+    atomisation = mass / (ELEMENTS['Al']['A'] * 1e-3) * 329700
+    sound = math.sqrt(E_CHARGE * (electron_temperature_eV +
+                                 5 / 3 * ion_temperature_eV) / ion_mass)
+    routes = {}
+    for name, charge, threshold in (
+            ('single', 1, al['singleIonisation_J']),
+            ('full', 13, al['fullIonisation_J'])):
+        thermal = 1.5 * atoms * E_CHARGE * (
+            ion_temperature_eV + charge * electron_temperature_eV)
+        deposited = threshold + atomisation + thermal
+        routes[name] = {
+            'atomicFloor_J': threshold, 'thermal_J': thermal,
+            'illustrativeDeposited_J': deposited,
+            'floorAverage_W': threshold / interval,
+            'floorPulse_W': threshold / pulse_s,
+            'depositedAverage_W': deposited / interval,
+            'depositedPulse_W': deposited / pulse_s,
+        }
+    return {
+        'duration_s': duration, 'arrivalRate_s1': count / duration,
+        'shotInterval_s': interval, 'pulse_s': pulse_s,
+        'dutyFactor': pulse_s / interval, 'atomisation_J': atomisation,
+        'soundSpeed_m_s': sound,
+        'expansionTime_s': cloud_radius_m / sound,
+        # Distance to the intended interaction region at pulse END, not the hull.
+        'pulseEndStandoff_m': w * cloud_radius_m / sound,
+        'pulseTravel_m': w * pulse_s, 'cloudDiameter_m': 2 * cloud_radius_m,
+        'specificImpactEnergy_J_kg': 0.5 * w**2,
+        'oneGramImpact_J': 0.5 * 1e-3 * w**2,
+        'oneGramTNTEquivalent_g': 0.5 * 1e-3 * w**2 / 4200,
+        'pelletImpact_J': 0.5 * mass * w**2, 'routes': routes,
+    }
+
+
+def pellet_reflector_budget(cloud_radius_m=10, coil_radius_m=10,
+                            current_density_A_m2=1e8):
+    """Pressure/orbit scales and a single-turn coil cost example, not a design.
+
+    J=100 A/mm^2 and copper density=8960 kg/m^3 are a mass proxy, NOT a
+    sustainable normal-conductor operating point or superconductor rating.
+    Inductance uses the thin round-wire *external* expression
+    L=mu0 R[ln(8R/a)-2], excluding internal flux. Supports, cooling, power,
+    insulation and plasma modification of the vacuum field are unmodelled.
+    On-axis field calculations do not imply on-axis ions are reflected.
+    """
+    for value in (cloud_radius_m, coil_radius_m, current_density_A_m2):
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError("reflector inputs must be finite and positive")
+    mass = 0.000375
+    w = 100e3
+    volume = 4 * math.pi * cloud_radius_m**3 / 3
+    ram = mass / volume * w**2
+    field = math.sqrt(2 * MU0 * ram)
+    ion_mass = ELEMENTS['Al']['A'] * ATOMIC_MASS_KG
+
+    def coil(local_field, axial_distance):
+        # Biot-Savart on-axis vacuum field of a circular loop.
+        current = (2 * local_field * (coil_radius_m**2 + axial_distance**2)**1.5
+                   / (MU0 * coil_radius_m**2))
+        area = current / current_density_A_m2
+        wire_radius = math.sqrt(area / math.pi)
+        if wire_radius >= coil_radius_m / 10:
+            raise ValueError("coil example requires thin wire (a/R < 0.1)")
+        inductance = MU0 * coil_radius_m * (math.log(8 * coil_radius_m / wire_radius) - 2)
+        return {'localField_T': local_field, 'axialDistance_m': axial_distance,
+                'current_A': current, 'wireRadius_m': wire_radius,
+                'conductorArea_m2': area,
+                'conductorMass_kg': 2 * math.pi * coil_radius_m * area * 8960,
+                'inductance_H': inductance, 'storedEnergy_J': 0.5 * inductance * current**2}
+
+    return {
+        'ramPressure_Pa': ram, 'tenMilliTeslaPressure_Pa': 0.01**2 / (2 * MU0),
+        'pressureBalanceField_T': field,
+        # 2*rho*w^2 is a conservative planar full-reversal stress scale.
+        'fullReversalFieldScale_T': math.sqrt(2) * field,
+        'gyroradiusAtBalance_m': ion_mass * w / (E_CHARGE * field),
+        'fullStripGyroradiusAtBalance_m': ion_mass * w / (13 * E_CHARGE * field),
+        'halfGyroTimeAtBalance_s': math.pi * ion_mass / (E_CHARGE * field),
+        'cloudCrossing_s': 2 * cloud_radius_m / w,
+        'absorptionImpulse_N_s': mass * w,
+        'idealReflectionImpulse_N_s': 2 * mass * w,
+        'referenceImpulse_N_s': 0.8 * 2 * mass * w,
+        'referenceMeanForce_N': 0.8 * 2 * mass * w / (30 * 86400 / 10000),
+        'referencePulseForceScale_N': 0.8 * 2 * mass * w / (2 * cloud_radius_m / w),
+        'coilRadius_m': coil_radius_m, 'currentDensity_A_m2': current_density_A_m2,
+        'tenMilliTeslaCentre': coil(0.01, 0),
+        'balanceCentre': coil(field, 0),
+        'balanceOneRadiusUpstream': coil(field, coil_radius_m),
+    }
+
+
+print("\n== Concept F: pellet arrival and reflector (issue #65) ==")
+for label, budget in (('arrival', pellet_arrival_budget()),
+                      ('reflector', pellet_reflector_budget())):
+    for key, value in budget.items():
+        print(f"  {label}.{key}: {value}")
+
+
 print("\n== Concept F: pellet materials (issue #60) ==")
 for name, row in pellet_material_comparison().items():
     print(f"  {name}: rho={row['density_g_cm3']:.5f} g/cm^3, d={row['diameter_mm']:.3f} mm, "
