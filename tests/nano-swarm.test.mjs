@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { applyTrajectory } from '../prototype/spacekit/engine.js';
 
-test('nano-swarm conservation, thermal/mass scaling, attrition, arrival and link budgets', () => {
+test('nano-swarm conservation, thermal/mass scaling, attrition, arrival, link and target-hop budgets', () => {
   execFileSync('python3', ['-c', `
 import contextlib, io, runpy, sys, unittest
 with contextlib.redirect_stdout(io.StringIO()):

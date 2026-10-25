@@ -1635,7 +1635,90 @@ def nano_magsail_brake(initial_fraction=0.2, final_km_s=100, radius_km=1000,
             'fitSpeedRatio': v0/vf}
 
 
+def nano_target_hop(distance_AU=23, coast_km_s=20,
+                    departure_mass_solar=1.0788, arrival_mass_solar=0.9092,
+                    departure_orbit_AU=1.233, arrival_orbit_AU=0.707):
+    """Post-capture hop scale: circular parking orbits and two ideal impulses.
+
+    Each endpoint uses v_peri² = v_inf² + 2*mu/r and a tangential burn
+    to/from v_circ = sqrt(mu/r). Equal scalar v_inf at both stars approximates
+    a common coast speed; it does not match their moving velocity vectors.
+    D/v_inf is a straight-line coast scale, not integrated time of flight.
+    No binary gravity, phasing, plane changes, sail work, propulsion design,
+    waiting time, initial capture/circularization or planetary landing.
+    Newtonian speeds are restricted to <0.01c. See nano-swarm.md, issue #77.
+    """
+    _em_positive(distance_AU=distance_AU, coast_km_s=coast_km_s,
+                 departure_mass_solar=departure_mass_solar,
+                 arrival_mass_solar=arrival_mass_solar,
+                 departure_orbit_AU=departure_orbit_AU,
+                 arrival_orbit_AU=arrival_orbit_AU)
+    if coast_km_s >= 0.01*LIGHT_SPEED/1000:
+        raise ValueError('Newtonian hop scale requires coast speed below 0.01c')
+    circular = [math.sqrt(MU_SUN*mass/(radius*AU))/1000
+                for mass, radius in ((departure_mass_solar, departure_orbit_AU),
+                                     (arrival_mass_solar, arrival_orbit_AU))]
+    periapsis = [math.sqrt(coast_km_s**2+2*v*v) for v in circular]
+    burns = [vp-vc for vp, vc in zip(periapsis, circular)]
+    return {'coast_years': distance_AU*AU/(coast_km_s*1000)/JULIAN_YEAR,
+            'departureCircular_km_s': circular[0], 'arrivalCircular_km_s': circular[1],
+            'departurePeriapsis_km_s': periapsis[0], 'arrivalPeriapsis_km_s': periapsis[1],
+            'departureDeltaV_km_s': burns[0], 'arrivalDeltaV_km_s': burns[1],
+            'totalDeltaV_km_s': sum(burns)}
+
+
 class NanoSwarmTests(unittest.TestCase):
+    def test_target_hop_endpoint_energy_and_circular_orbit_matching(self):
+        row = nano_target_hop()
+        for endpoint, mass, radius in (('departure', 1.0788, 1.233),
+                                       ('arrival', 0.9092, 0.707)):
+            vc = row[endpoint+'Circular_km_s']
+            vp = row[endpoint+'Periapsis_km_s']
+            dv = row[endpoint+'DeltaV_km_s']
+            # Recover hyperbolic energy independently in SI from each endpoint.
+            energy = (vp*1000)**2/2 - MU_SUN*mass/(radius*AU)
+            self.assertAlmostEqual(energy, (20*1000)**2/2, delta=1e-6)
+            self.assertAlmostEqual(vc+dv, vp)
+        self.assertAlmostEqual(row['totalDeltaV_km_s'],
+                               row['departureDeltaV_km_s']+row['arrivalDeltaV_km_s'])
+        # 1 AU at 1 km/s: independent rounded unit-conversion reference.
+        unit = nano_target_hop(distance_AU=1, coast_km_s=1)
+        self.assertAlmostEqual(unit['coast_years'], 4.74054, delta=1e-5)
+        reverse = nano_target_hop(departure_mass_solar=0.9092,
+                                  arrival_mass_solar=1.0788,
+                                  departure_orbit_AU=0.707, arrival_orbit_AU=1.233)
+        self.assertAlmostEqual(reverse['totalDeltaV_km_s'], row['totalDeltaV_km_s'])
+        self.assertAlmostEqual(reverse['arrivalDeltaV_km_s'], row['departureDeltaV_km_s'])
+
+    def test_target_hop_distance_speed_and_parking_orbit_sensitivities(self):
+        row = nano_target_hop()
+        farther = nano_target_hop(distance_AU=46)
+        self.assertEqual(farther['coast_years'], 2*row['coast_years'])
+        self.assertEqual(farther['totalDeltaV_km_s'], row['totalDeltaV_km_s'])
+        faster = nano_target_hop(coast_km_s=40)
+        self.assertEqual(faster['coast_years'], row['coast_years']/2)
+        self.assertGreater(faster['totalDeltaV_km_s'], row['totalDeltaV_km_s'])
+        slow = nano_target_hop(coast_km_s=1e-6)
+        self.assertAlmostEqual(slow['departureDeltaV_km_s'],
+                               (math.sqrt(2)-1)*slow['departureCircular_km_s'])
+        for speed, years in ((10, 6162.7), (100, 616.27), (1280, 48.146)):
+            prox = nano_target_hop(distance_AU=13000, coast_km_s=speed,
+                                   arrival_mass_solar=0.1221, arrival_orbit_AU=0.05)
+            self.assertAlmostEqual(prox['coast_years'], years, delta=0.05)
+            self.assertGreater(prox['arrivalDeltaV_km_s'], 0)
+        # Expensive reacceleration cannot be replaced by the retained speed
+        # of the published A/B -> Proxima through-flight.
+        self.assertGreater(prox['totalDeltaV_km_s'], 2400)
+
+    def test_target_hop_invalid_inputs(self):
+        for key in ('distance_AU', 'coast_km_s', 'departure_mass_solar',
+                    'arrival_mass_solar', 'departure_orbit_AU', 'arrival_orbit_AU'):
+            for value in (0, -1, math.nan, math.inf):
+                with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                    nano_target_hop(**{key: value})
+        with self.assertRaises(ValueError):
+            nano_target_hop(coast_km_s=0.01*LIGHT_SPEED/1000)
+
     def test_laser_energy_momentum_and_retarded_time(self):
         for b in (0, 0.001, 0.046, 0.2, 0.9):
             shot = nano_laser_shot(speed_fraction=b)
@@ -1810,6 +1893,11 @@ if __name__ == '__main__':
     print('  Starshot claims benchmark:', nano_claims_budget())
     for speed in (0.2, 0.046):
         print('  HTS loop braking from v/c:', speed, nano_magsail_brake(initial_fraction=speed))
+    print('  Post-capture A -> B hop scale:', nano_target_hop())
+    for speed in (10, 100, 1280):
+        print('  Post-capture A -> Proxima hop scale, coast km/s:', speed,
+              nano_target_hop(distance_AU=13000, coast_km_s=speed,
+                              arrival_mass_solar=0.1221, arrival_orbit_AU=0.05))
     print('  VERDICT: distributed flybys are meaningful; splitting alone gives no speed gain. '
           'Capture, gathering and a closed ISRU factory are separate unsolved systems.')
     result = unittest.TextTestRunner(verbosity=2).run(
